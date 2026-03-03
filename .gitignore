@@ -1,0 +1,24 @@
+# VSCode IntelliSense / browse databases (can be gigabytes)
+.vscode/browse.vc.db
+.vscode/browse.vc.db-shm
+.vscode/browse.vc.db-wal
+.vscode/ipch/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Video recordings produced at runtime
+recordings/
+
+# Isaac Sim / Omniverse runtime artifacts
+_build/
+_compiler/
+*.log
+*.pid
+kit/
+
+# OS junk
+.DS_Store
+Thumbs.db

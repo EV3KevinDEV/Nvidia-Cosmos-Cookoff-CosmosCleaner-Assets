@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmos Cleaner — Mission Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #111; color: #ddd; display: flex; height: 100vh; overflow: hidden; }
+
+        /* ── Sidebar ── */
+        .sidebar { width: 272px; min-width: 272px; background: #181818; padding: 12px; display: flex; flex-direction: column; gap: 9px; overflow-y: auto; border-right: 1px solid #252525; }
+        .sidebar h1 { color: #00bfff; font-size: 1.05em; text-align: center; }
+        .subtitle { display: block; color: #444; font-size: 0.62em; font-weight: normal; margin-top: 2px; }
+        .panel { background: #202020; border-radius: 6px; padding: 9px 11px; border: 1px solid #2a2a2a; }
+        .panel-title { color: #555; font-size: 0.7em; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 7px; }
+
+        /* Telemetry grid */
+        .telem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; }
+        .telem-item { display: flex; flex-direction: column; }
+        .tl { color: #4a4a4a; font-size: 0.65em; }
+        .tv { font-family: 'Courier New', monospace; font-size: 0.88em; color: #0f0; }
+        .tv.o { color: #f90; }  .tv.b { color: #00bfff; }  .tv.w { color: #bbb; }
+
+        /* Speed sliders */
+        .sp-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+        .sp-row label { color: #999; font-size: 0.75em; min-width: 96px; }
+        .sp-row input[type=range] { flex: 1; accent-color: #00bfff; cursor: pointer; }
+        .sp-row .sv { color: #00bfff; font-family: monospace; font-size: 0.8em; min-width: 32px; text-align: right; }
+
+        /* D-Pad */
+        .dpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        .dpad button { background: #2a2a2a; color: #ddd; border: 1px solid #383838; padding: 11px 0; border-radius: 5px; font-size: 1.15em; cursor: pointer; transition: background 0.1s, border-color 0.1s; user-select: none; }
+        .dpad button:hover  { background: #353535; border-color: #00bfff; }
+        .dpad button.active { background: #00bfff; color: #000; border-color: #00bfff; }
+        .dpad .empty { visibility: hidden; }
+        .stop-btn { background: #5a0000 !important; border-color: #900 !important; font-size: 0.72em !important; }
+        .stop-btn:hover { background: #800000 !important; }
+        .kbd-hint { text-align: center; color: #3a3a3a; font-size: 0.68em; margin-top: 4px; }
+
+        /* Buttons */
+        .btn-row { display: flex; gap: 6px; margin-top: 7px; }
+        .btn { background: #282828; color: #ccc; border: 1px solid #363636; padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 0.77em; flex: 1; transition: all 0.1s; text-align: center; }
+        .btn:hover { border-color: #00bfff; background: #303030; }
+        .btn.danger:hover { border-color: #f44; }
+        .mission-btn { width: 100%; padding: 9px; border-radius: 5px; font-size: 0.88em; font-weight: bold; cursor: pointer; margin-top: 7px; border: 1px solid; transition: all 0.15s; }
+        .mission-start { background: #0e2e0e; border-color: #2a6a2a; color: #4f4; }
+        .mission-start:hover { background: #163016; }
+        .mission-stop  { background: #2e0e0e; border-color: #6a2a2a; color: #f88; }
+        .mission-stop:hover  { background: #301616; }
+
+        /* Mission status */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: bold; }
+        .badge-idle  { background: #2a2a2a; color: #666; }
+        .badge-ready { background: #0e0e2e; color: #88f; border: 1px solid #33f; }
+        .badge-nav   { background: #0e2e0e; color: #4f4; border: 1px solid #2a6a2a; }
+        .prog-bg   { background: #161616; border-radius: 3px; height: 5px; margin: 5px 0 3px; overflow: hidden; }
+        .prog-fill { background: linear-gradient(90deg,#0a6,#0f0); height: 100%; border-radius: 3px; transition: width 0.3s; }
+
+        /* Waypoint list */
+        .wp-list { max-height: 110px; overflow-y: auto; margin-top: 5px; }
+        .wp-item { display: flex; align-items: center; gap: 5px; padding: 3px 6px; border-radius: 3px; margin-bottom: 2px; background: #181818; font-size: 0.73em; }
+        .wp-item.active-wp { background: #1e1e00; border: 1px solid #444400; }
+        .wp-n { color: #cc0; font-weight: bold; min-width: 18px; }
+        .wp-c { color: #777; font-family: monospace; flex: 1; }
+        .wp-x { color: #553; cursor: pointer; padding: 0 3px; }
+        .wp-x:hover { color: #f44; }
+
+        /* ── Map ── */
+        .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .map-header { padding: 6px 12px; background: #141414; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; font-size: 0.78em; flex-shrink: 0; gap: 8px; }
+        .map-header span { color: #555; }
+        .map-right { display: flex; align-items: center; gap: 8px; }
+        .legend { display: flex; gap: 10px; }
+        .leg { display: flex; align-items: center; gap: 3px; color: #555; font-size: 0.9em; }
+        .leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .tog { background: #222; color: #777; border: 1px solid #333; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 0.85em; transition: all 0.15s; }
+        .tog.on { background: #0e1e2e; color: #00bfff; border-color: #00bfff; }
+        #map-canvas { flex: 1; display: block; cursor: crosshair; min-height: 0; }
+
+        /* ── Camera panel ── */
+        .cam-panel { width: 484px; min-width: 484px; background: #141414; display: flex; flex-direction: column; border-left: 1px solid #222; overflow: hidden; }
+        .cam-hdr { padding: 7px 12px; background: #181818; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .cam-title { color: #00bfff; font-size: 0.82em; font-weight: bold; }
+        .cam-fps   { color: #0c0; font-family: monospace; font-size: 0.72em; background: #080808; padding: 2px 7px; border-radius: 3px; min-width: 52px; text-align: center; }
+        .cam-feed  { flex-shrink: 0; background: #000; line-height: 0; position: relative; }
+        .cam-feed img   { width: 100%; display: block; }
+        .cam-nofeed { display: flex; align-items: center; justify-content: center; height: 302px; color: #2a2a2a; font-size: 0.85em; flex-direction: column; gap: 6px; }
+        .cam-info  { padding: 6px 12px; background: #0e0e0e; border-top: 1px solid #1e1e1e; display: flex; gap: 14px; flex-shrink: 0; flex-wrap: wrap; }
+        .ci { display: flex; flex-direction: column; }
+        .ci-l { color: #383838; font-size: 0.63em; }
+        .ci-v { color: #777; font-size: 0.75em; font-family: monospace; }
+        .cam-ctrl  { padding: 7px 12px; border-top: 1px solid #1e1e1e; flex-shrink: 0; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+        /* ── Recording ── */
+        .rec-btn { background: #1a0a0a; border: 1px solid #444; color: #aaa; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 0.76em; transition: all 0.15s; white-space: nowrap; }
+        .rec-btn:hover { border-color: #f44; color: #f88; }
+        .rec-btn.active { background: #2a0000; border-color: #c22; color: #f44; animation: recpulse 1.2s ease-in-out infinite; }
+        @keyframes recpulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+        .rec-bar { padding: 4px 12px; background: #0d0000; border-bottom: 1px solid #2a0000; display: none; align-items: center; gap: 8px; flex-shrink: 0; }
+        .rec-bar.active { display: flex; }
+        .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: #f22; flex-shrink:0; animation: recpulse 1s ease-in-out infinite; }
+        .rec-timer  { color: #f55; font-family: monospace; font-size: 0.82em; }
+        .rec-frames { color: #622; font-family: monospace; font-size: 0.72em; }
+        .rec-section-title { color: #3a3a3a; font-size: 0.65em; text-transform: uppercase; letter-spacing: 1px; margin: 7px 0 4px; }
+        .rec-file { display: flex; align-items: center; justify-content: space-between; padding: 4px 7px; background: #0e0e0e; border-radius: 3px; margin-bottom: 2px; font-size: 0.72em; border: 1px solid #1a1a1a; }
+        .rec-file a { color: #00bfff; text-decoration: none; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+        .rec-file a:hover { text-decoration: underline; }
+        .rec-file .rec-sz { color: #444; font-size: 0.9em; white-space: nowrap; margin-left: 6px; }
+        .rec-empty { color: #2a2a2a; font-size: 0.72em; }
+
+        /* ── Kill button + modal ── */
+        .kill-btn { width:100%; background:#1a0000; color:#c44; border:1px solid #4a0000; padding:6px; border-radius:5px; font-size:0.78em; cursor:pointer; transition:all 0.15s; margin-top:2px; }
+        .kill-btn:hover { background:#2a0000; border-color:#a00; color:#f66; }
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:1000; align-items:center; justify-content:center; }
+        .modal-overlay.open { display:flex; }
+        .modal-box { background:#1e1e1e; border:1px solid #4a0000; border-radius:8px; padding:24px 28px; max-width:320px; text-align:center; box-shadow:0 0 40px rgba(200,0,0,0.15); }
+        .modal-box h2 { color:#f44; font-size:1em; margin-bottom:10px; }
+        .modal-box p  { color:#888; font-size:0.82em; margin-bottom:18px; line-height:1.5; }
+        .modal-btns { display:flex; gap:10px; justify-content:center; }
+        .modal-btns button { padding:8px 22px; border-radius:5px; cursor:pointer; font-size:0.85em; border:1px solid; transition:all 0.15s; }
+        .btn-cancel  { background:#222; border-color:#444; color:#aaa; }
+        .btn-cancel:hover { border-color:#888; color:#ddd; }
+        .btn-confirm { background:#4a0000; border-color:#a00; color:#f66; font-weight:bold; }
+        .btn-confirm:hover { background:#6a0000; border-color:#f44; color:#fff; }
+    </style>
+</head>
+<body>
+
+<!-- ══════════ SIDEBAR ══════════ -->
+<div class="sidebar">
+    <h1>🤖 Cosmos Cleaner Bot<span class="subtitle">Isaac Sim 5.0 · Mission Control</span></h1>
+    <button class="kill-btn" onclick="confirmShutdown()" title="Kill Isaac Sim process">⏻ Shutdown</button>
+
+    <!--
+    ═══════════════════════════════════════════════════════════════════
+     LLM NAVIGATION PANEL  (commented out — enable when API configured)
+    ═══════════════════════════════════════════════════════════════════
+    Uncomment this block AND the /llm_toggle endpoint in launch_scene.py
+
+    <div class="panel" id="llm-panel">
+        <div class="panel-title">🧠 LLM Navigation</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span id="llm-badge" class="badge badge-idle">OFF</span>
+            <button class="tog" id="btn-llm" onclick="toggleLLM()">Enable LLM</button>
+        </div>
+        <div style="margin-bottom:4px;">
+            <span class="tl">Scene Analysis</span>
+            <div id="llm-scene" style="color:#aaa;font-size:0.72em;margin-top:3px;
+                 min-height:36px;background:#161616;padding:5px 7px;border-radius:4px;
+                 font-family:sans-serif;line-height:1.45;">Awaiting LLM…</div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+            <div class="telem-item">
+                <span class="tl">Obstacle</span>
+                <span class="tv" id="llm-obstacle" style="color:#f90">—</span>
+            </div>
+            <div class="telem-item">
+                <span class="tl">Turn °</span>
+                <span class="tv b" id="llm-turn">—</span>
+            </div>
+            <div class="telem-item">
+                <span class="tl">Move m</span>
+                <span class="tv b" id="llm-move">—</span>
+            </div>
+        </div>
+        <div id="llm-error" style="color:#f44;font-size:0.7em;margin-top:5px;min-height:12px;"></div>
+    </div>
+
+    LLM JS — add inside the <script> block:
+
+    let llmActive = false;
+    async function toggleLLM() {
+        const r = await fetch('/llm_toggle', {method:'POST'});
+        const d = await r.json();
+        llmActive = d.llm_mode;
+        const btn   = document.getElementById('btn-llm');
+        const badge = document.getElementById('llm-badge');
+        btn.textContent   = llmActive ? 'Disable LLM' : 'Enable LLM';
+        btn.classList.toggle('on', llmActive);
+        badge.textContent = llmActive ? 'ACTIVE' : 'OFF';
+        badge.className   = 'badge ' + (llmActive ? 'badge-nav' : 'badge-idle');
+    }
+
+    // In fetchMapData(), add after existing telemetry updates:
+    // if (mapData.llm_scene !== undefined) {
+    //     document.getElementById('llm-scene').textContent    = mapData.llm_scene || 'Awaiting LLM…';
+    //     document.getElementById('llm-obstacle').textContent = mapData.llm_obstacle ? '⚠ YES' : 'Clear';
+    //     document.getElementById('llm-obstacle').style.color = mapData.llm_obstacle ? '#f44' : '#0f0';
+    //     document.getElementById('llm-error').textContent    = mapData.llm_error || '';
+    //     if (llmActive !== mapData.llm_mode) {
+    //         llmActive = mapData.llm_mode;
+    //         document.getElementById('btn-llm').classList.toggle('on', llmActive);
+    //         document.getElementById('llm-badge').textContent  = llmActive ? 'ACTIVE' : 'OFF';
+    //         document.getElementById('llm-badge').className    = 'badge '+(llmActive?'badge-nav':'badge-idle');
+    //     }
+    // }
+    -->
+
+    <!-- Telemetry -->
+    <div class="panel">
+        <div class="panel-title">📡 Telemetry</div>
+        <div class="telem-grid">
+            <div class="telem-item"><span class="tl">X (m)</span><span class="tv" id="tX">0.000</span></div>
+            <div class="telem-item"><span class="tl">Y (m)</span><span class="tv" id="tY">0.000</span></div>
+            <div class="telem-item"><span class="tl">Yaw (rad)</span><span class="tv o" id="tYaw">0.000</span></div>
+            <div class="telem-item"><span class="tl">Sim Time</span><span class="tv w" id="tTime">0.0 s</span></div>
+            <div class="telem-item"><span class="tl">Lin Vel (m/s)</span><span class="tv b" id="tLv">0.000</span></div>
+            <div class="telem-item"><span class="tl">Ang Vel (r/s)</span><span class="tv b" id="tAv">0.000</span></div>
+            <div class="telem-item" style="grid-column:span 2">
+                <span class="tl">Odometer</span>
+                <span class="tv o" id="tDist">0.00 m</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Speed Config -->
+    <div class="panel">
+        <div class="panel-title">⚡ Speed Config</div>
+        <div class="sp-row">
+            <label>Drive Linear</label>
+            <input type="range" id="sl-lin" min="0.1" max="2.0" step="0.05" value="0.5" oninput="onSpeedChange()">
+            <span class="sv" id="sv-lin">0.50</span>
+        </div>
+        <div class="sp-row">
+            <label>Drive Angular</label>
+            <input type="range" id="sl-ang" min="0.2" max="3.0" step="0.1" value="1.0" oninput="onSpeedChange()">
+            <span class="sv" id="sv-ang">1.00</span>
+        </div>
+        <div class="sp-row">
+            <label>Nav Speed</label>
+            <input type="range" id="sl-nav" min="0.1" max="2.0" step="0.05" value="0.5" oninput="onSpeedChange()">
+            <span class="sv" id="sv-nav">0.50</span>
+        </div>
+        <div class="sp-row">
+            <label>Nav Turn Gain</label>
+            <input type="range" id="sl-gain" min="0.1" max="2.0" step="0.05" value="0.6" oninput="onSpeedChange()">
+            <span class="sv" id="sv-gain">0.60</span>
+        </div>
+    </div>
+
+    <!-- Manual Control -->
+    <div class="panel">
+        <div class="panel-title">🕹 Manual Control</div>
+        <div class="dpad">
+            <div class="empty"></div>
+            <button id="btn-fwd"   onmousedown="startMove(1,0)"  onmouseup="stopMove()" onmouseleave="stopMove()">▲</button>
+            <div class="empty"></div>
+            <button id="btn-left"  onmousedown="startMove(0,1)"  onmouseup="stopMove()" onmouseleave="stopMove()">◀</button>
+            <button class="stop-btn" onclick="hardStop()">■ STOP</button>
+            <button id="btn-right" onmousedown="startMove(0,-1)" onmouseup="stopMove()" onmouseleave="stopMove()">▶</button>
+            <div class="empty"></div>
+            <button id="btn-bwd"   onmousedown="startMove(-1,0)" onmouseup="stopMove()" onmouseleave="stopMove()">▼</button>
+            <div class="empty"></div>
+        </div>
+        <div class="kbd-hint">W A S D &nbsp;/&nbsp; ↑ ← ↓ → &nbsp;— hold for continuous</div>
+    </div>
+
+    <!-- Mission -->
+    <div class="panel">
+        <div class="panel-title">🗺 Mission</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <span id="ms-badge" class="badge badge-idle">IDLE</span>
+            <span id="ms-wpinfo" style="color:#555;font-size:0.73em">—</span>
+        </div>
+        <div class="prog-bg"><div class="prog-fill" id="ms-prog" style="width:0%"></div></div>
+        <div id="ms-dist" style="color:#555;font-size:0.72em;min-height:14px;margin-bottom:4px;"></div>
+
+        <div class="btn-row">
+            <button class="btn" onclick="addWaypointHere()">📍 At Robot</button>
+            <button class="btn danger" onclick="post('/clear_waypoints')">🗑 Clear WPs</button>
+            <button class="btn" onclick="post('/clear_trail')">〰 Trail</button>
+        </div>
+        <div class="btn-row">
+            <button class="btn" onclick="post('/go_home')">🏠 Go Home</button>
+            <button class="btn" id="btn-reset-odom" onclick="resetOdom()">↺ Reset Odom</button>
+        </div>
+
+        <div class="wp-list" id="wp-list"></div>
+
+        <button class="mission-btn mission-start" id="ms-btn" onclick="toggleMission()">▶ START MISSION</button>
+    </div>
+</div>
+
+<!-- ══════════ MAP ══════════ -->
+<div class="main-area">
+    <div class="map-header">
+        <span>Live Map — scroll to zoom · right-drag to pan · click to add waypoint</span>
+        <div class="map-right">
+            <div class="legend">
+                <div class="leg"><span class="leg-dot" style="background:#00bfff"></span>Robot</div>
+                <div class="leg"><span class="leg-dot" style="background:#f44"></span>Trail</div>
+                <div class="leg"><span class="leg-dot" style="background:#0f0"></span>WP</div>
+            </div>
+            <button class="tog" id="btn-follow" onclick="toggleFollow()">🎯 Follow</button>
+        </div>
+    </div>
+    <canvas id="map-canvas"></canvas>
+</div>
+
+<!-- ══════════ CAMERA PANEL ══════════ -->
+<div class="cam-panel">
+    <div class="cam-hdr">
+        <span class="cam-title">📷 OmniVision OV9782 · RGB</span>
+        <div style="display:flex;align-items:center;gap:7px;">
+            <span class="cam-fps" id="cam-fps">— fps</span>
+            <button class="rec-btn" id="rec-btn" onclick="toggleRecord()">⏺ REC</button>
+        </div>
+    </div>
+    <div class="rec-bar" id="rec-bar">
+        <span class="rec-dot"></span>
+        <span class="rec-timer" id="rec-timer">00:00</span>
+        <span class="rec-frames" id="rec-frames">0 fr</span>
+        <span style="flex:1"></span>
+        <span style="color:#622;font-size:0.7em;letter-spacing:1px">RECORDING</span>
+    </div>
+    <div class="cam-feed" id="cam-feed-div">
+        <div class="cam-nofeed" id="cam-nofeed">
+            <span style="font-size:2em;opacity:.3">📷</span>
+            <span>Awaiting camera feed…</span>
+        </div>
+        <img id="depth-img" style="display:none" alt="" onload="onCamLoad(this)" onerror="onCamError()">
+    </div>
+    <div class="cam-info">
+        <div class="ci"><span class="ci-l">Sensor</span><span class="ci-v">OV9782 Color</span></div>
+        <div class="ci"><span class="ci-l">Capture</span><span class="ci-v">1280 × 800</span></div>
+        <div class="ci"><span class="ci-l">Display</span><span class="ci-v" id="cam-disp">— × —</span></div>
+        <div class="ci"><span class="ci-l">Format</span><span class="ci-v">JPEG</span></div>
+    </div>
+    <div class="cam-ctrl">
+        <div class="sp-row">
+            <label style="min-width:82px">JPEG Quality</label>
+            <input type="range" id="sl-qual" min="20" max="95" step="5" value="80" oninput="onQualityChange()">
+            <span class="sv" id="sv-qual">80</span>
+        </div>
+        <div class="rec-section-title">Saved Recordings</div>
+        <div id="rec-files"><span class="rec-empty">No recordings yet</span></div>
+    </div>
+</div>
+
+<!-- Shutdown confirm modal -->
+<div class="modal-overlay" id="shutdown-modal">
+    <div class="modal-box">
+        <h2>⚠️ Shutdown Isaac Sim?</h2>
+        <p>This will kill the simulation process.<br>Any unsaved recording will be finalized first.</p>
+        <div class="modal-btns">
+            <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn-confirm" id="btn-confirm-shutdown" onclick="doShutdown()">Shutdown</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── Speed state ───────────────────────────────────────────────────────────
+let linSpeed = 0.5, angSpeed = 1.0;
+function onSpeedChange() {
+    linSpeed = parseFloat(document.getElementById('sl-lin').value);
+    angSpeed = parseFloat(document.getElementById('sl-ang').value);
+    const nav  = parseFloat(document.getElementById('sl-nav').value);
+    const gain = parseFloat(document.getElementById('sl-gain').value);
+    document.getElementById('sv-lin').textContent  = linSpeed.toFixed(2);
+    document.getElementById('sv-ang').textContent  = angSpeed.toFixed(2);
+    document.getElementById('sv-nav').textContent  = nav.toFixed(2);
+    document.getElementById('sv-gain').textContent = gain.toFixed(2);
+    post('/set_speed', {nav_speed: nav, nav_angular_gain: gain});
+}
+function onQualityChange() {
+    const q = parseInt(document.getElementById('sl-qual').value);
+    document.getElementById('sv-qual').textContent = q;
+    post('/set_speed', {jpeg_quality: q});
+}
+
+// ─── Movement ──────────────────────────────────────────────────────────────
+let _moveInterval = null;
+function sendMove(ld, ad) {
+    fetch('/move', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({linear: ld * linSpeed, angular: ad * angSpeed})});
+}
+function startMove(ld, ad) {
+    sendMove(ld, ad);
+    clearInterval(_moveInterval);
+    _moveInterval = setInterval(() => sendMove(ld, ad), 120);
+    document.getElementById('btn-fwd').classList.toggle('active',   ld > 0);
+    document.getElementById('btn-bwd').classList.toggle('active',   ld < 0);
+    document.getElementById('btn-left').classList.toggle('active',  ad > 0);
+    document.getElementById('btn-right').classList.toggle('active', ad < 0);
+}
+function stopMove() {
+    clearInterval(_moveInterval); _moveInterval = null;
+    sendMove(0, 0);
+    ['btn-fwd','btn-bwd','btn-left','btn-right'].forEach(id => document.getElementById(id).classList.remove('active'));
+}
+function hardStop() {
+    stopMove();
+    post('/stop_mission');
+}
+
+// ─── Actions ───────────────────────────────────────────────────────────────
+function post(url, body) {
+    fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+        body: body ? JSON.stringify(body) : undefined});
+}
+function addWaypointHere()    { post('/add_waypoint'); }
+function deleteWaypoint(idx)  { post('/delete_waypoint', {idx}); }
+function resetOdom()          { post('/reset_odom'); }
+
+let missionActive = false;
+function toggleMission() {
+    if (missionActive) { post('/stop_mission'); missionActive = false; }
+    else               { post('/start_mission'); missionActive = true; }
+}
+
+// ─── Keyboard ──────────────────────────────────────────────────────────────
+const keys = new Set();
+let kbInterval = null;
+const kbMoveKeys = new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D']);
+function applyKeys() {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    let ld = 0, ad = 0;
+    if (keys.has('ArrowUp')   || keys.has('w') || keys.has('W')) ld =  1;
+    if (keys.has('ArrowDown') || keys.has('s') || keys.has('S')) ld = -1;
+    if (keys.has('ArrowLeft') || keys.has('a') || keys.has('A')) ad =  1;
+    if (keys.has('ArrowRight')|| keys.has('d') || keys.has('D')) ad = -1;
+    sendMove(ld, ad);
+    document.getElementById('btn-fwd').classList.toggle('active',   ld > 0);
+    document.getElementById('btn-bwd').classList.toggle('active',   ld < 0);
+    document.getElementById('btn-left').classList.toggle('active',  ad > 0);
+    document.getElementById('btn-right').classList.toggle('active', ad < 0);
+}
+document.addEventListener('keydown', e => {
+    if (!kbMoveKeys.has(e.key)) return;
+    e.preventDefault();
+    if (!keys.has(e.key)) { keys.add(e.key); applyKeys(); }
+});
+document.addEventListener('keyup', e => {
+    if (!keys.has(e.key)) return;
+    keys.delete(e.key);
+    if (keys.size === 0) stopMove();
+    else applyKeys();
+});
+
+// ─── Auto-follow ───────────────────────────────────────────────────────────
+let autoFollow = false;
+function toggleFollow() {
+    autoFollow = !autoFollow;
+    document.getElementById('btn-follow').classList.toggle('on', autoFollow);
+}
+
+// ─── Canvas ────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('map-canvas');
+const ctx    = canvas.getContext('2d');
+let viewCX = 0, viewCY = 0, scale = 80;
+
+function resizeCanvas() {
+    const r = canvas.parentElement.getBoundingClientRect();
+    canvas.width  = r.width;
+    canvas.height = r.height - canvas.offsetTop;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+const w2cX = wx => canvas.width /2 + (wx - viewCX) * scale;
+const w2cY = wy => canvas.height/2 - (wy - viewCY) * scale;
+const c2wX = cx => (cx - canvas.width /2) / scale + viewCX;
+const c2wY = cy => -(cy - canvas.height/2) / scale + viewCY;
+
+canvas.addEventListener('click', e => {
+    const r = canvas.getBoundingClientRect();
+    post('/add_waypoint', {x: c2wX(e.clientX-r.left), y: c2wY(e.clientY-r.top)});
+});
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    scale = Math.max(10, Math.min(500, scale * (e.deltaY < 0 ? 1.15 : 0.87)));
+}, {passive:false});
+let drag=false, dsx, dsy;
+canvas.addEventListener('mousedown', e => { if(e.button===1||e.button===2){drag=true;dsx=e.clientX;dsy=e.clientY;e.preventDefault();} });
+canvas.addEventListener('mousemove', e => {
+    if (!drag) return;
+    viewCX -= (e.clientX-dsx)/scale; viewCY += (e.clientY-dsy)/scale;
+    dsx=e.clientX; dsy=e.clientY;
+});
+canvas.addEventListener('mouseup',    () => drag=false);
+canvas.addEventListener('mouseleave', () => drag=false);
+canvas.addEventListener('contextmenu',e => e.preventDefault());
+
+function drawGrid() {
+    ctx.strokeStyle='#1c1c1c'; ctx.lineWidth=1;
+    const step = scale>=40?1:scale>=15?5:10;
+    const l=c2wX(0),r=c2wX(canvas.width),t=c2wY(0),b=c2wY(canvas.height);
+    for(let x=Math.floor(l/step)*step;x<=r;x+=step){
+        const cx=w2cX(x); ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,canvas.height);ctx.stroke();
+    }
+    for(let y=Math.floor(b/step)*step;y<=t;y+=step){
+        const cy=w2cY(y); ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(canvas.width,cy);ctx.stroke();
+    }
+    ctx.strokeStyle='#2e2e2e'; ctx.lineWidth=1.5;
+    const ox=w2cX(0),oy=w2cY(0);
+    ctx.beginPath();ctx.moveTo(ox,0);ctx.lineTo(ox,canvas.height);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,oy);ctx.lineTo(canvas.width,oy);ctx.stroke();
+    // Axis labels
+    ctx.fillStyle='#333'; ctx.font='10px monospace'; ctx.textAlign='left';
+    ctx.fillText('N',ox+3,10); ctx.fillText('E',canvas.width-18,oy-3);
+}
+
+function drawPath(path) {
+    if(path.length<2) return;
+    ctx.strokeStyle='#c33'; ctx.lineWidth=1.5; ctx.globalAlpha=0.5;
+    ctx.beginPath(); ctx.moveTo(w2cX(path[0][0]),w2cY(path[0][1]));
+    for(let i=1;i<path.length;i++) ctx.lineTo(w2cX(path[i][0]),w2cY(path[i][1]));
+    ctx.stroke(); ctx.globalAlpha=1;
+}
+
+function drawWaypoints(wps, aIdx) {
+    if(wps.length>=2){
+        ctx.strokeStyle='rgba(0,200,0,0.2)'; ctx.lineWidth=1; ctx.setLineDash([5,4]);
+        ctx.beginPath(); ctx.moveTo(w2cX(wps[0][0]),w2cY(wps[0][1]));
+        for(let i=1;i<wps.length;i++) ctx.lineTo(w2cX(wps[i][0]),w2cY(wps[i][1]));
+        ctx.stroke(); ctx.setLineDash([]);
+    }
+    wps.forEach((wp,i) => {
+        const cx=w2cX(wp[0]),cy=w2cY(wp[1]),active=(i===aIdx);
+        ctx.beginPath(); ctx.arc(cx,cy,active?7:5,0,Math.PI*2);
+        ctx.fillStyle=active?'#ff0':'#0c0'; ctx.fill();
+        ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+        ctx.fillStyle='#fff'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center';
+        ctx.fillText(i+1,cx,cy-10);
+    });
+}
+
+function drawRobot(robot) {
+    const cx=w2cX(robot.x), cy=w2cY(robot.y), s=12;
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(-robot.yaw+Math.PI);
+    ctx.fillStyle='#00bfff';
+    ctx.beginPath();
+    ctx.moveTo(s,0); ctx.lineTo(-s*.7,-s*.6); ctx.lineTo(-s*.35,0); ctx.lineTo(-s*.7,s*.6);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+}
+
+// ─── Data poll ─────────────────────────────────────────────────────────────
+let mapData = {robot:{x:0,y:0,yaw:0},path:[],waypoints:[],active_wp:-1,
+               linear_vel:0,angular_vel:0,distance:0,sim_time:0,
+               mission:{status:'Idle',wp_dist:0,remaining:0}};
+
+async function fetchMapData() {
+    try {
+        const r = await fetch('/map_data');
+        mapData = await r.json();
+        const rd = mapData.robot;
+
+        document.getElementById('tX').textContent    = rd.x.toFixed(3);
+        document.getElementById('tY').textContent    = rd.y.toFixed(3);
+        document.getElementById('tYaw').textContent  = rd.yaw.toFixed(3);
+        document.getElementById('tLv').textContent   = (mapData.linear_vel||0).toFixed(3);
+        document.getElementById('tAv').textContent   = (mapData.angular_vel||0).toFixed(3);
+        document.getElementById('tDist').textContent = (mapData.distance||0).toFixed(2)+' m';
+        document.getElementById('tTime').textContent = (mapData.sim_time||0).toFixed(1)+' s';
+
+        // Mission
+        const ms = mapData.mission||{};
+        const sts = ms.status||'Idle';
+        const badge = document.getElementById('ms-badge');
+        badge.textContent = sts.toUpperCase();
+        badge.className = 'badge ' + (sts==='Idle'?'badge-idle':sts==='Ready'?'badge-ready':'badge-nav');
+        const nw = mapData.waypoints.length, rem = ms.remaining||0, done = nw-rem;
+        document.getElementById('ms-wpinfo').textContent = nw>0?`${done}/${nw} WPs`:'No waypoints';
+        document.getElementById('ms-prog').style.width  = (nw>0?done/nw*100:0)+'%';
+        document.getElementById('ms-dist').textContent  = mapData.active_wp>=0?`→ WP${mapData.active_wp+1}: ${(ms.wp_dist||0).toFixed(2)} m away`:'';
+
+        const msBtn = document.getElementById('ms-btn');
+        if (mapData.active_wp>=0) {
+            msBtn.textContent='⏹ STOP MISSION'; msBtn.className='mission-btn mission-stop'; missionActive=true;
+        } else {
+            msBtn.textContent='▶ START MISSION'; msBtn.className='mission-btn mission-start'; missionActive=false;
+        }
+
+        // Sync nav sliders from backend
+        if (mapData.speeds) {
+            const navEl=document.getElementById('sl-nav');
+            if (Math.abs(parseFloat(navEl.value)-mapData.speeds.nav)>0.04) {
+                navEl.value=mapData.speeds.nav;
+                document.getElementById('sv-nav').textContent=mapData.speeds.nav.toFixed(2);
+            }
+            const gainEl=document.getElementById('sl-gain');
+            if (Math.abs(parseFloat(gainEl.value)-mapData.speeds.nav_angular_gain)>0.04) {
+                gainEl.value=mapData.speeds.nav_angular_gain;
+                document.getElementById('sv-gain').textContent=mapData.speeds.nav_angular_gain.toFixed(2);
+            }
+        }
+
+        // Waypoint list
+        const wl = document.getElementById('wp-list'); wl.innerHTML='';
+        mapData.waypoints.forEach((wp,i)=>{
+            const d = document.createElement('div');
+            d.className = 'wp-item'+(i===mapData.active_wp?' active-wp':'');
+            d.innerHTML = `<span class="wp-n">${i+1}</span><span class="wp-c">${wp[0].toFixed(2)}, ${wp[1].toFixed(2)}</span><span class="wp-x" onclick="deleteWaypoint(${i})" title="Remove">✕</span>`;
+            wl.appendChild(d);
+        });
+
+        if (autoFollow) { viewCX=rd.x; viewCY=rd.y; }
+    } catch(e){}
+}
+
+// ─── Camera ────────────────────────────────────────────────────────────────
+let camFrames=0, camT=Date.now();
+function onCamLoad(img) {
+    document.getElementById('cam-nofeed').style.display='none';
+    img.style.display='block';
+    camFrames++;
+    const now=Date.now();
+    if(now-camT>=1000){
+        document.getElementById('cam-fps').textContent=camFrames+' fps';
+        camFrames=0; camT=now;
+    }
+    document.getElementById('cam-disp').textContent=img.clientWidth+' × '+img.clientHeight;
+}
+function onCamError() {
+    document.getElementById('depth-img').style.display='none';
+    document.getElementById('cam-nofeed').style.display='flex';
+}
+
+setInterval(()=>{
+    const img=document.getElementById('depth-img');
+    if(img) img.src='/depth_feed?t='+Date.now();
+},150);
+
+// ─── Shutdown ─────────────────────────────────────────────────────────────
+function confirmShutdown() {
+    document.getElementById('shutdown-modal').classList.add('open');
+}
+function closeModal() {
+    document.getElementById('shutdown-modal').classList.remove('open');
+}
+async function doShutdown() {
+    const btn = document.getElementById('btn-confirm-shutdown');
+    btn.textContent = 'Shutting down…'; btn.disabled = true;
+    try { await fetch('/shutdown', {method:'POST'}); } catch(e){}
+    document.querySelector('.modal-box p').textContent = 'Process terminated. You may close this tab.';
+    document.querySelector('.modal-box h2').textContent = '✅ Shutdown sent';
+    document.querySelector('.modal-btns').innerHTML = '';
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// ─── Recording ─────────────────────────────────────────────────────────────
+let recActive = false, recTimerInterval = null, recStartTs = 0;
+
+async function toggleRecord() {
+    const btn = document.getElementById('rec-btn');
+    if (!recActive) {
+        btn.textContent = '…'; btn.disabled = true;
+        const r = await fetch('/record/start', {method:'POST'});
+        const d = await r.json();
+        btn.disabled = false;
+        if (d.recording) {
+            recActive  = true;
+            recStartTs = Date.now();
+            btn.textContent = '⏹ STOP';
+            btn.classList.add('active');
+            document.getElementById('rec-bar').classList.add('active');
+            recTimerInterval = setInterval(() => {
+                const s  = Math.floor((Date.now() - recStartTs) / 1000);
+                const mm = String(Math.floor(s/60)).padStart(2,'0');
+                const ss = String(s%60).padStart(2,'0');
+                document.getElementById('rec-timer').textContent = mm+':'+ss;
+            }, 500);
+        } else {
+            btn.textContent = '⏺ REC';
+        }
+    } else {
+        btn.textContent = '…'; btn.disabled = true;
+        const r = await fetch('/record/stop', {method:'POST'});
+        await r.json();
+        btn.disabled = false;
+        recActive = false;
+        clearInterval(recTimerInterval);
+        btn.textContent = '⏺ REC';
+        btn.classList.remove('active');
+        document.getElementById('rec-bar').classList.remove('active');
+        document.getElementById('rec-timer').textContent  = '00:00';
+        document.getElementById('rec-frames').textContent = '0 fr';
+        updateRecFiles();
+    }
+}
+
+function fmtSize(bytes) {
+    if (bytes < 1024)       return bytes+'B';
+    if (bytes < 1048576)    return (bytes/1024).toFixed(1)+'KB';
+    return (bytes/1048576).toFixed(1)+'MB';
+}
+
+async function updateRecFiles() {
+    try {
+        const r = await fetch('/record/status');
+        const d = await r.json();
+        if (d.recording) {
+            document.getElementById('rec-frames').textContent = d.frames+' fr';
+        }
+        const el = document.getElementById('rec-files');
+        if (!d.files || d.files.length === 0) {
+            el.innerHTML = '<span class="rec-empty">No recordings yet</span>';
+            return;
+        }
+        el.innerHTML = [...d.files].reverse().map(f =>
+            `<div class="rec-file">
+                <a href="/recordings/${encodeURIComponent(f.name)}" download="${f.name}" title="${f.name}">${f.name}</a>
+                <span class="rec-sz">${fmtSize(f.size)}</span>
+            </div>`
+        ).join('');
+    } catch(e){}
+}
+
+setInterval(updateRecFiles, 3000);
+updateRecFiles();
+
+// ─── Render ────────────────────────────────────────────────────────────────
+function render() {
+    resizeCanvas();
+    ctx.fillStyle='#090909'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    drawGrid();
+    drawPath(mapData.path);
+    drawWaypoints(mapData.waypoints, mapData.active_wp);
+    drawRobot(mapData.robot);
+    requestAnimationFrame(render);
+}
+
+setInterval(fetchMapData, 100);
+render();
+</script>
+</body>
+</html>
