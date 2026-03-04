@@ -113,6 +113,56 @@
         .rec-file .rec-sz { color: #444; font-size: 0.9em; white-space: nowrap; margin-left: 6px; }
         .rec-empty { color: #2a2a2a; font-size: 0.72em; }
 
+        /* ── Snapshot / Dataset ── */
+        .snap-btn { background: #0a1a0a; border: 1px solid #444; color: #aaa; padding: 3px 9px; border-radius: 4px; cursor: pointer; font-size: 0.76em; transition: all 0.15s; white-space: nowrap; }
+        .snap-btn:hover { border-color: #0f0; color: #0f0; }
+        .snap-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        @keyframes snapflash { 0%{background:#0c0;border-color:#0f0;color:#000} 100%{background:#0a1a0a;color:#aaa} }
+        .snap-btn.flashing { animation: snapflash 0.5s ease-out forwards; }
+        .cam-flash { position:absolute;inset:0;background:#fff;pointer-events:none;opacity:0;transition:opacity 0.4s ease-out;z-index:10; }
+        .cam-flash.pop { opacity:0.65;transition:none; }
+        .snap-count-badge { color: #0a0; font-family: monospace; font-size: 0.72em; background: #080808; padding: 2px 7px; border-radius: 3px; min-width: 36px; text-align: center; }
+        .dataset-file { display:flex;align-items:center;justify-content:space-between;padding:3px 5px;background:#0e0e0e;border-radius:3px;margin-bottom:2px;font-size:0.70em;border:1px solid #1a1a1a; }
+        .dataset-file .ds-name { color:#3a7a3a;text-decoration:none;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:235px;cursor:pointer; }
+        .dataset-file .ds-name:hover { color:#0f0; }
+        .dataset-file .ds-sz { color:#444;font-size:0.9em;white-space:nowrap;margin-left:6px;flex-shrink:0; }
+        .snap-label-row { display:flex;gap:5px;margin-top:5px;align-items:center; }
+        .snap-label-input { flex:1;background:#111;border:1px solid #2a2a2a;color:#aaa;padding:4px 7px;border-radius:4px;font-size:0.74em;outline:none; }
+        .snap-label-input:focus { border-color:#2a4a2a; }
+        .snap-label-input::placeholder { color:#333; }
+        .snap-go-btn { background:#0a1a0a;border:1px solid #2a4a2a;color:#6a6;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.74em;white-space:nowrap;transition:all 0.15s; }
+        .snap-go-btn:hover { border-color:#0f0;color:#0f0; }
+
+        /* ── LLM Panel ── */
+        .llm-panel-on { border-color: #1a3a1a !important; }
+        #llm-scene-txt { color: #555; font-size: 0.72em; margin-top: 3px; min-height: 36px;
+            background: #161616; padding: 5px 7px; border-radius: 4px;
+            font-family: sans-serif; line-height: 1.45; transition: color 0.3s; }
+        .llm-scene-live { color: #aaa !important; }
+
+        /* ── Reasoning Trace ── */
+        .llm-trace { padding: 0 12px 10px; flex-shrink: 0; }
+        .llm-trace-hdr { display: flex; justify-content: space-between; align-items: center;
+            color: #3a3a3a; font-size: 0.65em; text-transform: uppercase;
+            letter-spacing: 1px; margin: 8px 0 5px; }
+        .llm-trace-feed { max-height: 230px; overflow-y: auto; display: flex;
+            flex-direction: column-reverse; gap: 4px; }
+        .llm-entry { background: #0e0e0e; border: 1px solid #1e1e1e; border-radius: 4px;
+            padding: 6px 8px; font-size: 0.71em; }
+        .llm-entry.obs { border-color: #3a1a00; background: #0d0800; }
+        .llm-entry-head { display: flex; justify-content: space-between; align-items: baseline;
+            margin-bottom: 3px; flex-wrap: wrap; gap: 4px; }
+        .llm-ts { color: #333; font-family: monospace; font-size: 0.9em; }
+        .llm-cmds { display: flex; gap: 8px; }
+        .llm-cmd { font-family: monospace; font-weight: bold; font-size: 1.05em; }
+        .llm-cmd.turn { color: #00bfff; }
+        .llm-cmd.move { color: #0f0; }
+        .llm-cmd.obs  { color: #f90; }
+        .llm-scene-row { color: #555; line-height: 1.4; }
+        .llm-err-row   { color: #f44; font-size: 0.9em; margin-top: 2px; }
+        .llm-empty { color: #252525; font-size: 0.72em; font-style: italic;
+            text-align: center; padding: 14px 0; }
+
         /* ── Kill button + modal ── */
         .kill-btn { width:100%; background:#1a0000; color:#c44; border:1px solid #4a0000; padding:6px; border-radius:5px; font-size:0.78em; cursor:pointer; transition:all 0.15s; margin-top:2px; }
         .kill-btn:hover { background:#2a0000; border-color:#a00; color:#f66; }
@@ -136,12 +186,7 @@
     <h1>🤖 Cosmos Cleaner Bot<span class="subtitle">Isaac Sim 5.0 · Mission Control</span></h1>
     <button class="kill-btn" onclick="confirmShutdown()" title="Kill Isaac Sim process">⏻ Shutdown</button>
 
-    <!--
-    ═══════════════════════════════════════════════════════════════════
-     LLM NAVIGATION PANEL  (commented out — enable when API configured)
-    ═══════════════════════════════════════════════════════════════════
-    Uncomment this block AND the /llm_toggle endpoint in launch_scene.py
-
+    <!-- LLM Navigation Panel -->
     <div class="panel" id="llm-panel">
         <div class="panel-title">🧠 LLM Navigation</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -150,14 +195,12 @@
         </div>
         <div style="margin-bottom:4px;">
             <span class="tl">Scene Analysis</span>
-            <div id="llm-scene" style="color:#aaa;font-size:0.72em;margin-top:3px;
-                 min-height:36px;background:#161616;padding:5px 7px;border-radius:4px;
-                 font-family:sans-serif;line-height:1.45;">Awaiting LLM…</div>
+            <div id="llm-scene-txt">Awaiting LLM…</div>
         </div>
         <div style="display:flex;gap:10px;margin-top:4px;">
             <div class="telem-item">
                 <span class="tl">Obstacle</span>
-                <span class="tv" id="llm-obstacle" style="color:#f90">—</span>
+                <span class="tv" id="llm-obstacle" style="color:#555">—</span>
             </div>
             <div class="telem-item">
                 <span class="tl">Turn °</span>
@@ -168,38 +211,8 @@
                 <span class="tv b" id="llm-move">—</span>
             </div>
         </div>
-        <div id="llm-error" style="color:#f44;font-size:0.7em;margin-top:5px;min-height:12px;"></div>
+        <div id="llm-error-txt" style="color:#f44;font-size:0.7em;margin-top:5px;min-height:12px;"></div>
     </div>
-
-    LLM JS — add inside the <script> block:
-
-    let llmActive = false;
-    async function toggleLLM() {
-        const r = await fetch('/llm_toggle', {method:'POST'});
-        const d = await r.json();
-        llmActive = d.llm_mode;
-        const btn   = document.getElementById('btn-llm');
-        const badge = document.getElementById('llm-badge');
-        btn.textContent   = llmActive ? 'Disable LLM' : 'Enable LLM';
-        btn.classList.toggle('on', llmActive);
-        badge.textContent = llmActive ? 'ACTIVE' : 'OFF';
-        badge.className   = 'badge ' + (llmActive ? 'badge-nav' : 'badge-idle');
-    }
-
-    // In fetchMapData(), add after existing telemetry updates:
-    // if (mapData.llm_scene !== undefined) {
-    //     document.getElementById('llm-scene').textContent    = mapData.llm_scene || 'Awaiting LLM…';
-    //     document.getElementById('llm-obstacle').textContent = mapData.llm_obstacle ? '⚠ YES' : 'Clear';
-    //     document.getElementById('llm-obstacle').style.color = mapData.llm_obstacle ? '#f44' : '#0f0';
-    //     document.getElementById('llm-error').textContent    = mapData.llm_error || '';
-    //     if (llmActive !== mapData.llm_mode) {
-    //         llmActive = mapData.llm_mode;
-    //         document.getElementById('btn-llm').classList.toggle('on', llmActive);
-    //         document.getElementById('llm-badge').textContent  = llmActive ? 'ACTIVE' : 'OFF';
-    //         document.getElementById('llm-badge').className    = 'badge '+(llmActive?'badge-nav':'badge-idle');
-    //     }
-    // }
-    -->
 
     <!-- Telemetry -->
     <div class="panel">
@@ -308,6 +321,8 @@
         <span class="cam-title">📷 OmniVision OV9782 · RGB</span>
         <div style="display:flex;align-items:center;gap:7px;">
             <span class="cam-fps" id="cam-fps">— fps</span>
+            <button class="snap-btn" id="snap-btn" onclick="takeSnapshot()" title="Snapshot to dataset  [F]">📸</button>
+            <span class="snap-count-badge" id="snap-count-badge">0</span>
             <button class="rec-btn" id="rec-btn" onclick="toggleRecord()">⏺ REC</button>
         </div>
     </div>
@@ -319,6 +334,7 @@
         <span style="color:#622;font-size:0.7em;letter-spacing:1px">RECORDING</span>
     </div>
     <div class="cam-feed" id="cam-feed-div">
+        <div class="cam-flash" id="cam-flash"></div>
         <div class="cam-nofeed" id="cam-nofeed">
             <span style="font-size:2em;opacity:.3">📷</span>
             <span>Awaiting camera feed…</span>
@@ -339,6 +355,28 @@
         </div>
         <div class="rec-section-title">Saved Recordings</div>
         <div id="rec-files"><span class="rec-empty">No recordings yet</span></div>
+
+        <div class="rec-section-title" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <span>📁 Dataset Snapshots</span>
+            <span class="snap-count-badge" id="ds-total-badge">0</span>
+        </div>
+        <div class="snap-label-row">
+            <input type="text" id="snap-label" class="snap-label-input" placeholder="label (optional, e.g. wall, cable)" maxlength="40">
+            <button class="snap-go-btn" onclick="takeSnapshot(document.getElementById('snap-label').value)">📸 Snap</button>
+        </div>
+        <div style="color:#2a2a2a;font-size:0.65em;margin:3px 0 5px;">Press <kbd style="background:#1a1a1a;padding:1px 4px;border-radius:2px;color:#555">F</kbd> for quick snap while driving</div>
+        <div id="dataset-files"><span class="rec-empty">No snapshots yet</span></div>
+    </div>
+
+    <!-- Reasoning Trace -->
+    <div class="llm-trace" style="border-top:1px solid #1e1e1e;">
+        <div class="llm-trace-hdr">
+            <span>🧠 Reason Trace</span>
+            <button class="tog" style="font-size:0.78em;padding:2px 8px" onclick="clearTrace()">Clear</button>
+        </div>
+        <div class="llm-trace-feed" id="llm-trace-feed">
+            <div class="llm-empty" id="llm-trace-empty">LLM not active — enable via sidebar toggle</div>
+        </div>
     </div>
 </div>
 
@@ -355,6 +393,67 @@
 </div>
 
 <script>
+// ─── LLM ──────────────────────────────────────────────────────────────────
+let llmActive = false;
+let llmLastScene = '';
+
+async function toggleLLM() {
+    const r = await fetch('/llm_toggle', {method:'POST'});
+    const d = await r.json();
+    setLLMState(d.llm_mode);
+}
+
+function setLLMState(on) {
+    llmActive = on;
+    const btn   = document.getElementById('btn-llm');
+    const badge = document.getElementById('llm-badge');
+    const panel = document.getElementById('llm-panel');
+    btn.textContent = on ? 'Disable LLM' : 'Enable LLM';
+    btn.classList.toggle('on', on);
+    badge.textContent = on ? 'ACTIVE' : 'OFF';
+    badge.className   = 'badge ' + (on ? 'badge-nav' : 'badge-idle');
+    panel.classList.toggle('llm-panel-on', on);
+    if (!on) {
+        document.getElementById('llm-scene-txt').classList.remove('llm-scene-live');
+        document.getElementById('llm-trace-empty').textContent = 'LLM paused';
+    }
+}
+
+let traceCount = 0;
+function addToTrace(scene, turn, move, obstacle, error, simTime) {
+    const feed = document.getElementById('llm-trace-feed');
+    const empty = document.getElementById('llm-trace-empty');
+    if (empty) empty.remove();
+
+    const entry = document.createElement('div');
+    entry.className = 'llm-entry' + (obstacle ? ' obs' : '');
+    const ts  = simTime != null ? `t=${simTime.toFixed(1)}s` : new Date().toLocaleTimeString();
+    const turnStr = (turn >= 0 ? '+' : '') + turn.toFixed(1) + '°';
+    const moveStr = (move >= 0 ? '+' : '') + move.toFixed(2) + 'm';
+    entry.innerHTML =
+        `<div class="llm-entry-head">
+            <span class="llm-ts">#${++traceCount} &nbsp;${ts}</span>
+            <span class="llm-cmds">
+                ${obstacle ? '<span class="llm-cmd obs">⚠ OBS</span>' : ''}
+                <span class="llm-cmd turn">↻ ${turnStr}</span>
+                <span class="llm-cmd move">→ ${moveStr}</span>
+            </span>
+        </div>
+        <div class="llm-scene-row">${scene || '(no analysis)'}</div>
+        ${error ? `<div class="llm-err-row">⚠ ${error}</div>` : ''}`;
+
+    // Prepend so newest is on top; keep at most 50 entries
+    feed.insertBefore(entry, feed.firstChild);
+    while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+}
+
+function clearTrace() {
+    const feed = document.getElementById('llm-trace-feed');
+    feed.innerHTML = '<div class="llm-empty" id="llm-trace-empty">Cleared</div>';
+    traceCount = 0;
+    llmLastScene = '';
+}
+
 // ─── Speed state ───────────────────────────────────────────────────────────
 let linSpeed = 0.5, angSpeed = 1.0;
 function onSpeedChange() {
@@ -432,7 +531,16 @@ function applyKeys() {
     document.getElementById('btn-right').classList.toggle('active', ad < 0);
 }
 document.addEventListener('keydown', e => {
-    if (!kbMoveKeys.has(e.key)) return;
+    if (!kbMoveKeys.has(e.key)) {
+        // F = quick snapshot
+        if (e.key === 'f' || e.key === 'F') {
+            if (!document.activeElement || document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                takeSnapshot();
+            }
+        }
+        return;
+    }
     e.preventDefault();
     if (!keys.has(e.key)) { keys.add(e.key); applyKeys(); }
 });
@@ -605,6 +713,33 @@ async function fetchMapData() {
         });
 
         if (autoFollow) { viewCX=rd.x; viewCY=rd.y; }
+
+        // ── LLM panel ──
+        if (mapData.llm_mode !== undefined) {
+            if (mapData.llm_mode !== llmActive) setLLMState(mapData.llm_mode);
+
+            const sceneTxt = mapData.llm_scene || (llmActive ? 'Awaiting first response…' : 'Awaiting LLM…');
+            const sceneEl  = document.getElementById('llm-scene-txt');
+            sceneEl.textContent = sceneTxt;
+            sceneEl.classList.toggle('llm-scene-live', !!mapData.llm_scene);
+
+            const obs = !!mapData.llm_obstacle;
+            const obsEl = document.getElementById('llm-obstacle');
+            obsEl.textContent  = mapData.llm_scene ? (obs ? '⚠ YES' : 'Clear') : '—';
+            obsEl.style.color  = mapData.llm_scene ? (obs ? '#f44' : '#0f0') : '#555';
+
+            const turn = mapData.llm_turn ?? null;
+            const move = mapData.llm_move ?? null;
+            document.getElementById('llm-turn').textContent = turn != null ? (turn>=0?'+':'')+turn.toFixed(1)+'°' : '—';
+            document.getElementById('llm-move').textContent = move != null ? (move>=0?'+':'')+move.toFixed(2)+'m' : '—';
+            document.getElementById('llm-error-txt').textContent = mapData.llm_error || '';
+
+            // Add trace entry when a new scene analysis arrives
+            if (mapData.llm_scene && mapData.llm_scene !== llmLastScene) {
+                llmLastScene = mapData.llm_scene;
+                addToTrace(mapData.llm_scene, turn ?? 0, move ?? 0, obs, mapData.llm_error || '', mapData.sim_time);
+            }
+        }
     } catch(e){}
 }
 
@@ -626,10 +761,70 @@ function onCamError() {
     document.getElementById('cam-nofeed').style.display='flex';
 }
 
-setInterval(()=>{
-    const img=document.getElementById('depth-img');
-    if(img) img.src='/depth_feed?t='+Date.now();
-},150);
+// Use MJPEG stream — single persistent connection, server pushes every new frame
+(function startCamStream(){
+    const img = document.getElementById('depth-img');
+    if(!img) return;
+    img.onload  = () => onCamLoad(img);
+    img.onerror = onCamError;
+    img.src = '/depth_stream';
+})();
+
+// ─── Snapshot / Dataset ───────────────────────────────────────────────────
+let snapTotal = 0;
+
+async function takeSnapshot(label) {
+    const btn = document.getElementById('snap-btn');
+    btn.disabled = true;
+    const body = (label && label.trim()) ? {label: label.trim()} : {};
+    try {
+        const r = await fetch('/snapshot', {method:'POST',
+            headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const d = await r.json();
+        if (d.success) {
+            snapTotal = d.count || (snapTotal + 1);
+            // White flash on camera feed
+            const flash = document.getElementById('cam-flash');
+            flash.classList.add('pop');
+            requestAnimationFrame(() => requestAnimationFrame(() => flash.classList.remove('pop')));
+            // Flash button
+            btn.classList.add('flashing');
+            setTimeout(() => btn.classList.remove('flashing'), 520);
+            document.getElementById('snap-count-badge').textContent = snapTotal;
+            document.getElementById('ds-total-badge').textContent   = snapTotal;
+            updateDatasetFiles();
+        } else {
+            console.warn('Snapshot failed:', d.error);
+            btn.textContent = '⚠';
+            setTimeout(() => { btn.textContent = '📸'; }, 1000);
+        }
+    } catch(e) { console.error('Snapshot error:', e); }
+    btn.disabled = false;
+}
+
+async function updateDatasetFiles() {
+    try {
+        const r = await fetch('/dataset');
+        const d = await r.json();
+        snapTotal = d.total || 0;
+        document.getElementById('snap-count-badge').textContent = snapTotal;
+        document.getElementById('ds-total-badge').textContent   = snapTotal;
+        const el = document.getElementById('dataset-files');
+        if (!d.files || d.files.length === 0) {
+            el.innerHTML = '<span class="rec-empty">No snapshots yet</span>';
+            return;
+        }
+        el.innerHTML = [...d.files].reverse().slice(0, 30).map(f =>
+            `<div class="dataset-file">
+                <a class="ds-name" href="/dataset/${encodeURIComponent(f.name)}" target="_blank" title="${f.name}">${f.name}</a>
+                <span class="ds-sz">${fmtSize(f.size)}</span>
+            </div>`
+        ).join('');
+    } catch(e){}
+}
+
+setInterval(updateDatasetFiles, 5000);
+updateDatasetFiles();
 
 // ─── Shutdown ─────────────────────────────────────────────────────────────
 function confirmShutdown() {

@@ -3,14 +3,26 @@
 .vscode/browse.vc.db-shm
 .vscode/browse.vc.db-wal
 .vscode/ipch/
+.vscode/
 
 # Python cache
 __pycache__/
 *.py[cod]
 *.pyo
 
-# Video recordings produced at runtime
+# Video recordings and datasets produced at runtime
 recordings/
+dataset/
+obstacles/
+*.webp
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.usd
+*.usda
+*.usdc
+*.usd-backup
 
 # Isaac Sim / Omniverse runtime artifacts
 _build/
