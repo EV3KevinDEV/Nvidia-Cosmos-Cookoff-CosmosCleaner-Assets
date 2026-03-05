@@ -45,14 +45,44 @@ Activate the environment before running:
 conda activate isaaclab
 ```
 
----
-
 ## Quick Start
 
 ### 1. Start the Cosmos Reason2 Bridge (on a remote GPU)
 ```bash
 brev port-forward cosmos-reason -p 8080:8080
 ```
+
+## LLM Navigation Logic
+
+The robot's navigation is driven by the **Cosmos Reason2 Bridge**, which acts as the "brain." Instead of traditional hard-coded pathfinding, it uses a Vision-Language Model (VLM) to interpret the scene and make movement decisions.
+
+### How it Works:
+1.  **Visual Perception**: Every 30 simulation steps (~0.5 seconds), the robot captures its onboard RGB camera feed.
+2.  **Telemetry Data**: The current odometry (X/Y position, heading, velocity, and sweep state) is bundled with the image.
+3.  **VLM Processing**: The image and telemetry are sent to the remote LLM bridge via a `POST` request.
+4.  **Action Output**: The LLM analyzes the scene (e.g., "identified cables," "approaching wall") and responds with a standardized JSON command:
+    ```json
+    {
+      "scene_analysis": "Clear path ahead; continuing sweep.",
+      "obstacle_detected": false,
+      "turn_degrees": 0.0,
+      "move_meters": 0.20
+    }
+    ```
+5.  **Velocity Mapping**:
+    *   `move_meters` is mapped to **Linear Velocity** (capped at 1.0 m/s).
+    *   `turn_degrees` is mapped to **Angular Velocity** (capped at 2.5 rad/s).
+    *   The robot maintains this velocity until the next LLM command arrives, ensuring smooth, reactive movement.
+
+### Behavioral Rules (Strict Priority):
+The LLM is prompted to follow a specific hierarchy of rules:
+1.  **Stall Recovery**: If telemetry indicates a `STALL`, the robot must turn 90-120° away.
+2.  **Hazard Mitigation**:
+    *   **Type-A (Entanglement)**: Cables, cords, or wires trigger an immediate STOP and a 90° turn away.
+    *   **Type-B (Structural)**: Walls and furniture trigger a 45-90° turn (or a U-turn for row ends).
+3.  **Boustrophedon Sweep**: If the path is clear, the robot performs long parallel rows, executing a 180° turn (two 90° turns) at every wall.
+
+---
 
 ### 2. Launch the simulation
 ```bash
@@ -76,48 +106,7 @@ Navigate to **http://localhost:5000** in your browser.
 | **Record** | Start / stop MP4 video recording |
 | **Shutdown** | Gracefully terminate the simulation |
 
----
-
-## LLM Navigation
-
-The robot uses a **phase machine** driven by the Cosmos Reason2 Bridge:
-
-```
-IDLE → ROTATE (turn to heading) → DRIVE (forward N meters) → IDLE → ...
-```
-
-### Boustrophedon Path Planning
-The LLM is prompted to perform a lawnmower sweep:
-- Drive in long parallel rows
-- At each wall, execute a 90° + 90° U-turn to start the next row
-- `_sweep_row` tracks completed rows; direction (`left-to-right` / `right-to-left`) is passed in every prompt
-
-### Image Inference
-Camera frames are captured at **1280×800** (30 fps) for the dashboard stream.  
-Before sending to the bridge, frames are **resized to 640×400** (~75% fewer pixels), reducing bridge payload and inference latency.
-
-### Obstacle Avoidance Rules (in prompt priority order)
-| Rule | Trigger | Response |
-|---|---|---|
-| A | Dark/black image | Spin 90°, stop |
-| B | Wall fills center of image | Begin U-turn (90°) |
-| C | Object >15% of frame / <0.8 m | Dodge 45–55°, stop |
-| D | STALL alert (wall contact) | Escape turn 120° |
-| E | IDLE alert (zero cmds ×3) | Spin 90° |
-| F | Distant object | Gentle arc 10–20°, 0.10 m |
-| G | Clear floor | Straight + micro-correction ±5–10°, 0.15–0.20 m |
-
-### Key Tunable Constants (`launch_scene.py`)
-| Constant | Value | Description |
-|---|---|---|
-| `nav_speed` | 0.40 m/s | Forward drive speed |
-| `_BRIDGE_IMG_W/H` | 640 × 400 | Bridge inference resolution |
-| `move_meters` clip | 0 – 0.20 m | Max step size per command |
-| Stall threshold | 12 steps | Steps at low velocity before escape spin |
-| No-turn override | 15 steps | Force U-turn after N straight steps |
-| Turn granularity | 5° increments | All LLM turns rounded to nearest 5° |
-
----
+-
 
 ## Environment
 
