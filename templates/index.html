@@ -177,6 +177,107 @@
         .btn-cancel:hover { border-color:#888; color:#ddd; }
         .btn-confirm { background:#4a0000; border-color:#a00; color:#f66; font-weight:bold; }
         .btn-confirm:hover { background:#6a0000; border-color:#f44; color:#fff; }
+
+        /* ── Expanded Reason View ── */
+        .expand-btn { background:#0a0e1a; border:1px solid #1a2a4a; color:#4a8aaa; padding:3px 8px;
+            border-radius:4px; cursor:pointer; font-size:0.74em; transition:all 0.15s; white-space:nowrap; }
+        .expand-btn:hover { border-color:#00bfff; color:#00bfff; }
+        .reason-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92);
+            z-index:2000; flex-direction:column; }
+        .reason-overlay.open { display:flex; }
+        .reason-topbar { display:flex; align-items:center; justify-content:space-between;
+            padding:8px 16px; background:#0d1117; border-bottom:1px solid #1e2a3a; flex-shrink:0; gap:12px; }
+        .reason-topbar-left { display:flex; align-items:center; gap:12px; }
+        .reason-title { color:#00bfff; font-size:0.92em; font-weight:bold; letter-spacing:0.5px; }
+        .reason-badge { font-size:0.7em; padding:2px 8px; border-radius:10px; font-weight:bold;
+            background:#0e2e0e; color:#4f4; border:1px solid #2a6a2a; }
+        .reason-badge.off { background:#1a1a1a; color:#555; border-color:#2a2a2a; }
+        .reason-close { background:#1e1e1e; border:1px solid #333; color:#888; padding:4px 14px;
+            border-radius:5px; cursor:pointer; font-size:0.82em; transition:all 0.15s; }
+        .reason-close:hover { border-color:#f44; color:#f88; }
+        .reason-body { display:flex; flex:1; min-height:0; gap:0; }
+
+        /* Left: live feed + current decision */
+        .reason-left { width:520px; min-width:380px; display:flex; flex-direction:column;
+            background:#0a0a0a; border-right:1px solid #1a2030; flex-shrink:0; }
+        .reason-feed-wrap { flex:1; min-height:0; background:#000; position:relative; overflow:hidden; }
+        .reason-feed-wrap img { width:100%; height:100%; object-fit:contain; display:block; }
+        .reason-feed-overlay { position:absolute; bottom:0; left:0; right:0;
+            background:linear-gradient(transparent,rgba(0,0,0,0.82));
+            padding:10px 12px 8px; pointer-events:none; }
+        .reason-feed-scene { color:#ddd; font-size:0.82em; line-height:1.4; font-style:italic; }
+        .reason-cam-flash { position:absolute; inset:0; background:#fff; pointer-events:none;
+            opacity:0; transition:opacity 0.4s ease-out; z-index:5; }
+        .reason-cam-flash.pop { opacity:0.5; transition:none; }
+
+        /* Current decision card */
+        .reason-decision { padding:10px 14px; border-top:1px solid #151f2e; flex-shrink:0; }
+        .rd-title { color:#3a4a5a; font-size:0.62em; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:7px; }
+        .rd-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+        .rd-cell { background:#0d1117; border:1px solid #1a2030; border-radius:5px; padding:7px 9px;
+            display:flex; flex-direction:column; gap:2px; }
+        .rd-cell.obs  { border-color:#3a1a00; background:#0d0800; }
+        .rd-cell.ovr  { border-color:#1a3a1a; background:#080d08; }
+        .rd-cell.drive{ border-color:#002a00; background:#010d01; }
+        .rd-lbl { color:#3a4a5a; font-size:0.58em; text-transform:uppercase; letter-spacing:0.8px; }
+        .rd-val { font-family:'Courier New',monospace; font-size:1.0em; font-weight:bold; color:#ddd; }
+        .rd-val.cyan   { color:#00bfff; }
+        .rd-val.green  { color:#0f0; }
+        .rd-val.orange { color:#f90; }
+        .rd-val.red    { color:#f44; }
+        .rd-val.yellow { color:#ff0; }
+        .rd-raw { color:#2a3a4a; font-size:0.68em; font-family:monospace; margin-top:1px; }
+
+        /* Override banner */
+        .rd-override-banner { margin-top:8px; padding:5px 9px; border-radius:4px;
+            background:#0a1a0a; border:1px solid #1a3a1a;
+            color:#4f4; font-family:monospace; font-size:0.76em; display:none; align-items:center; gap:6px; }
+        .rd-override-banner.active { display:flex; }
+        .rd-override-icon { font-size:1.1em; }
+
+        /* Right: reasoning trace */
+        .reason-right { flex:1; display:flex; flex-direction:column; min-width:0; background:#080b10; }
+        .reason-trace-hdr { padding:8px 14px; background:#0d1117; border-bottom:1px solid #151f2e;
+            display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .reason-trace-title { color:#3a4a5a; font-size:0.65em; text-transform:uppercase; letter-spacing:1.2px; }
+        .reason-trace-stats { display:flex; gap:12px; }
+        .rts { font-family:monospace; font-size:0.7em; }
+        .rts-lbl { color:#2a3a4a; }
+        .rts-val { color:#4a8aaa; }
+        .reason-trace-body { flex:1; overflow-y:auto; padding:8px 10px; display:flex;
+            flex-direction:column; gap:5px; }
+
+        /* Trace entries in expanded view */
+        .re-entry { background:#0d1117; border:1px solid #151f2e; border-radius:5px;
+            padding:8px 10px; font-size:0.73em; transition:border-color 0.2s; }
+        .re-entry:hover { border-color:#1e2a3a; }
+        .re-entry.re-obs  { border-left:3px solid #c84400; }
+        .re-entry.re-ovr  { border-left:3px solid #1a7a1a; }
+        .re-entry.re-drive{ border-left:3px solid #003a00; }
+        .re-head { display:flex; justify-content:space-between; align-items:baseline;
+            margin-bottom:4px; flex-wrap:wrap; gap:4px; }
+        .re-seq  { color:#1e3a4a; font-family:monospace; }
+        .re-ts   { color:#2a3a4a; font-family:monospace; font-size:0.9em; }
+        .re-cmds { display:flex; gap:8px; align-items:center; }
+        .re-cmd  { font-family:monospace; font-weight:bold; font-size:1.05em; }
+        .re-cmd.turn  { color:#00bfff; }
+        .re-cmd.move  { color:#0f0; }
+        .re-cmd.obs-y { color:#f90; }
+        .re-latency { color:#2a4a2a; font-family:monospace; font-size:0.85em; }
+        .re-scene { color:#4a5a6a; line-height:1.45; margin-bottom:3px; }
+        .re-override { display:inline-block; background:#0a1a0a; border:1px solid #1a3a1a;
+            color:#4f4; font-family:monospace; font-size:0.85em; padding:1px 6px;
+            border-radius:3px; margin-top:3px; }
+        .re-raw { color:#1e3040; font-family:monospace; font-size:0.85em; margin-top:2px; }
+        .re-err { color:#f44; font-size:0.88em; margin-top:2px; }
+
+        /* Override stats bar */
+        .reason-stats-bar { padding:6px 14px; background:#0a0d12; border-top:1px solid #151f2e;
+            display:flex; gap:16px; flex-shrink:0; flex-wrap:wrap; }
+        .rsb-item { display:flex; align-items:center; gap:5px; font-size:0.68em; }
+        .rsb-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+        .rsb-label { color:#3a4a5a; }
+        .rsb-count { font-family:monospace; color:#6a8aaa; font-weight:bold; }
     </style>
 </head>
 <body>
@@ -321,6 +422,7 @@
         <span class="cam-title">📷 OmniVision OV9782 · RGB</span>
         <div style="display:flex;align-items:center;gap:7px;">
             <span class="cam-fps" id="cam-fps">— fps</span>
+            <button class="expand-btn" onclick="openReasonView()" title="Expanded reasoning view  [R]">⛶ Expand</button>
             <button class="snap-btn" id="snap-btn" onclick="takeSnapshot()" title="Snapshot to dataset  [F]">📸</button>
             <span class="snap-count-badge" id="snap-count-badge">0</span>
             <button class="rec-btn" id="rec-btn" onclick="toggleRecord()">⏺ REC</button>
@@ -380,6 +482,92 @@
     </div>
 </div>
 
+<!-- ══════════ EXPANDED REASON VIEW ══════════ -->
+<div class="reason-overlay" id="reason-overlay">
+    <!-- Top bar -->
+    <div class="reason-topbar">
+        <div class="reason-topbar-left">
+            <span class="reason-title">🧠 Cosmos Reason 2 — Live Reasoning Stack</span>
+            <span class="reason-badge off" id="rv-badge">OFF</span>
+            <span style="color:#2a3a4a;font-size:0.7em;font-family:monospace" id="rv-pending"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="color:#2a3a4a;font-size:0.68em">Press <kbd style="background:#1a1a1a;padding:1px 5px;border-radius:3px;color:#555">R</kbd> or <kbd style="background:#1a1a1a;padding:1px 5px;border-radius:3px;color:#555">Esc</kbd> to close</span>
+            <button class="reason-close" onclick="closeReasonView()">✕ Close</button>
+        </div>
+    </div>
+
+    <!-- Body: feed left, trace right -->
+    <div class="reason-body">
+
+        <!-- Left: live camera + current decision -->
+        <div class="reason-left">
+            <div class="reason-feed-wrap">
+                <div class="reason-cam-flash" id="rv-flash"></div>
+                <img id="rv-feed" src="" alt="camera feed">
+                <div class="reason-feed-overlay">
+                    <div class="reason-feed-scene" id="rv-scene-overlay">Awaiting Cosmos Reason 2…</div>
+                </div>
+            </div>
+
+            <!-- Current decision card -->
+            <div class="reason-decision">
+                <div class="rd-title">Current Decision — Cosmos Reason 2 Output</div>
+                <div class="rd-grid">
+                    <div class="rd-cell" id="rv-obs-cell">
+                        <span class="rd-lbl">Obstacle</span>
+                        <span class="rd-val" id="rv-obs">—</span>
+                    </div>
+                    <div class="rd-cell" id="rv-turn-cell">
+                        <span class="rd-lbl">Turn °</span>
+                        <span class="rd-val cyan" id="rv-turn">—</span>
+                        <span class="rd-raw" id="rv-raw-turn"></span>
+                    </div>
+                    <div class="rd-cell" id="rv-move-cell">
+                        <span class="rd-lbl">Move m</span>
+                        <span class="rd-val green" id="rv-move">—</span>
+                        <span class="rd-raw" id="rv-raw-move"></span>
+                    </div>
+                    <div class="rd-cell">
+                        <span class="rd-lbl">Latency</span>
+                        <span class="rd-val" id="rv-latency" style="color:#4a6a4a">—</span>
+                    </div>
+                </div>
+                <div class="rd-override-banner" id="rv-ovr-banner">
+                    <span class="rd-override-icon">🛡</span>
+                    <span>Safety override: </span>
+                    <strong id="rv-ovr-label"></strong>
+                    <span style="color:#2a4a2a;margin-left:6px;font-size:0.85em">LLM output intercepted</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: full reasoning trace -->
+        <div class="reason-right">
+            <div class="reason-trace-hdr">
+                <span class="reason-trace-title">📋 Reasoning Trace</span>
+                <div class="reason-trace-stats">
+                    <span class="rts"><span class="rts-lbl">total </span><span class="rts-val" id="rv-stat-total">0</span></span>
+                    <span class="rts"><span class="rts-lbl">obs </span><span class="rts-val" style="color:#f90" id="rv-stat-obs">0</span></span>
+                    <span class="rts"><span class="rts-lbl">overrides </span><span class="rts-val" style="color:#4f4" id="rv-stat-ovr">0</span></span>
+                    <span class="rts"><span class="rts-lbl">drive </span><span class="rts-val" style="color:#2a6a2a" id="rv-stat-drive">0</span></span>
+                    <button class="tog" style="font-size:0.72em;padding:2px 8px" onclick="clearRvTrace()">Clear</button>
+                </div>
+            </div>
+            <div class="reason-trace-body" id="rv-trace-body">
+                <div style="color:#1e2a3a;font-size:0.78em;font-style:italic;text-align:center;padding:20px 0"
+                     id="rv-trace-empty">LLM not active — enable via sidebar toggle</div>
+            </div>
+            <div class="reason-stats-bar">
+                <div class="rsb-item"><span class="rsb-dot" style="background:#003a00"></span><span class="rsb-lbl">Drive</span><span class="rsb-count" id="rvs-drive">0</span></div>
+                <div class="rsb-item"><span class="rsb-dot" style="background:#c84400"></span><span class="rsb-lbl">Obstacle stop</span><span class="rsb-count" id="rvs-obs">0</span></div>
+                <div class="rsb-item"><span class="rsb-dot" style="background:#1a7a1a"></span><span class="rsb-lbl">Safety override</span><span class="rsb-count" id="rvs-ovr">0</span></div>
+                <div class="rsb-item"><span class="rsb-dot" style="background:#00bfff"></span><span class="rsb-lbl">Avg latency</span><span class="rsb-count" id="rvs-lat">—</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Shutdown confirm modal -->
 <div class="modal-overlay" id="shutdown-modal">
     <div class="modal-box">
@@ -393,6 +581,166 @@
 </div>
 
 <script>
+// ─── Expanded Reason View ─────────────────────────────────────────────────
+let rvOpen = false;
+let rvLastSeq = -1;
+let rvStats = {total:0, obs:0, ovr:0, drive:0, latTotal:0, latCount:0};
+
+function openReasonView() {
+    rvOpen = true;
+    const ol = document.getElementById('reason-overlay');
+    ol.classList.add('open');
+    // Mirror the MJPEG stream into the expanded feed
+    const rvFeed = document.getElementById('rv-feed');
+    if (!rvFeed.src || !rvFeed.src.includes('/depth_stream')) {
+        rvFeed.src = '/depth_stream';
+    }
+}
+function closeReasonView() {
+    rvOpen = false;
+    document.getElementById('reason-overlay').classList.remove('open');
+}
+function clearRvTrace() {
+    document.getElementById('rv-trace-body').innerHTML =
+        '<div style="color:#1e2a3a;font-size:0.78em;font-style:italic;text-align:center;padding:20px 0" id="rv-trace-empty">Cleared</div>';
+    rvStats = {total:0, obs:0, ovr:0, drive:0, latTotal:0, latCount:0};
+    rvLastSeq = -1;
+    updateRvStats();
+}
+function updateRvStats() {
+    document.getElementById('rv-stat-total').textContent = rvStats.total;
+    document.getElementById('rv-stat-obs').textContent   = rvStats.obs;
+    document.getElementById('rv-stat-ovr').textContent   = rvStats.ovr;
+    document.getElementById('rv-stat-drive').textContent = rvStats.drive;
+    document.getElementById('rvs-obs').textContent   = rvStats.obs;
+    document.getElementById('rvs-ovr').textContent   = rvStats.ovr;
+    document.getElementById('rvs-drive').textContent = rvStats.drive;
+    const avgLat = rvStats.latCount ? (rvStats.latTotal / rvStats.latCount).toFixed(1)+'s' : '—';
+    document.getElementById('rvs-lat').textContent = avgLat;
+}
+
+function updateReasonView(d) {
+    if (!d.llm_mode) {
+        document.getElementById('rv-badge').textContent = 'OFF';
+        document.getElementById('rv-badge').className  = 'reason-badge off';
+        return;
+    }
+    document.getElementById('rv-badge').textContent = 'ACTIVE';
+    document.getElementById('rv-badge').className   = 'reason-badge';
+    document.getElementById('rv-pending').textContent = d.llm_pending ? '⟳ inferring…' : '';
+
+    // Update current decision card
+    const obs  = !!d.llm_obstacle;
+    const turn = d.llm_turn ?? 0;
+    const move = d.llm_move ?? 0;
+    const ovr  = d.llm_override || '';
+    const lat  = d.llm_elapsed || 0;
+    const rawT = d.llm_raw_turn ?? null;
+    const rawM = d.llm_raw_move ?? null;
+
+    const obsEl  = document.getElementById('rv-obs');
+    const oCell  = document.getElementById('rv-obs-cell');
+    const tCell  = document.getElementById('rv-turn-cell');
+    const mCell  = document.getElementById('rv-move-cell');
+    obsEl.textContent = d.llm_scene ? (obs ? '⚠ YES' : 'Clear') : '—';
+    obsEl.className   = 'rd-val ' + (d.llm_scene ? (obs ? 'orange' : 'green') : '');
+    oCell.className   = 'rd-cell' + (obs ? ' obs' : '');
+
+    document.getElementById('rv-turn').textContent = d.llm_scene ? (turn>=0?'+':'')+turn.toFixed(1)+'°' : '—';
+    document.getElementById('rv-move').textContent = d.llm_scene ? (move>=0?'+':'')+move.toFixed(2)+'m' : '—';
+    document.getElementById('rv-latency').textContent = lat ? lat.toFixed(1)+'s' : '—';
+
+    // Show raw model output if overridden
+    if (ovr && rawT !== null) {
+        document.getElementById('rv-raw-turn').textContent = `model: ${rawT>=0?'+':''}${rawT.toFixed(1)}°`;
+        document.getElementById('rv-raw-move').textContent = `model: ${rawM>=0?'+':''}${rawM.toFixed(2)}m`;
+        tCell.className = 'rd-cell ovr'; mCell.className = 'rd-cell ovr';
+    } else {
+        document.getElementById('rv-raw-turn').textContent = '';
+        document.getElementById('rv-raw-move').textContent = '';
+        const driveClass = move > 0.05 ? 'rd-cell drive' : 'rd-cell';
+        tCell.className = driveClass; mCell.className = driveClass;
+    }
+
+    // Override banner
+    const ovrBanner = document.getElementById('rv-ovr-banner');
+    if (ovr) {
+        ovrBanner.classList.add('active');
+        document.getElementById('rv-ovr-label').textContent = ovr;
+    } else {
+        ovrBanner.classList.remove('active');
+    }
+
+    // Scene text overlay on feed
+    document.getElementById('rv-scene-overlay').textContent =
+        d.llm_scene || (d.llm_mode ? 'Awaiting Cosmos Reason 2…' : '');
+
+    // Add trace entry when a new LLM seq arrives
+    const seq = d.llm_seq || 0;
+    if (d.llm_scene && seq !== rvLastSeq) {
+        rvLastSeq = seq;
+        addRvEntry(seq, d.llm_scene, turn, move, obs, ovr, rawT, rawM, lat,
+                   d.llm_error || '', d.sim_time);
+    }
+}
+
+function addRvEntry(seq, scene, turn, move, obs, ovr, rawT, rawM, lat, error, simTime) {
+    const body  = document.getElementById('rv-trace-body');
+    const empty = document.getElementById('rv-trace-empty');
+    if (empty) empty.remove();
+
+    rvStats.total++;
+    if (obs || move < 0.01) rvStats.obs++;
+    if (ovr)  rvStats.ovr++;
+    if (move > 0.05 && !obs) rvStats.drive++;
+    if (lat) { rvStats.latTotal += lat; rvStats.latCount++; }
+    updateRvStats();
+
+    const isObs  = obs || move < 0.01;
+    const isOvr  = !!ovr;
+    const isDrive = move > 0.05 && !obs;
+    let cls = 're-entry';
+    if (isOvr)   cls += ' re-ovr';
+    else if (isObs)  cls += ' re-obs';
+    else if (isDrive) cls += ' re-drive';
+
+    const ts     = simTime != null ? `t=${simTime.toFixed(1)}s` : new Date().toLocaleTimeString();
+    const turnS  = (turn>=0?'+':'')+turn.toFixed(1)+'°';
+    const moveS  = (move>=0?'+':'')+move.toFixed(2)+'m';
+    const latS   = lat ? `${lat.toFixed(1)}s` : '';
+    const rawLine = (ovr && rawT !== null)
+        ? `<div class="re-raw">model output: turn=${rawT>=0?'+':''}${rawT.toFixed(1)}° move=${rawM.toFixed(2)}m</div>` : '';
+    const ovrLine = ovr
+        ? `<span class="re-override">🛡 ${ovr}</span>` : '';
+    const errLine = error
+        ? `<div class="re-err">⚠ ${error}</div>` : '';
+
+    const el = document.createElement('div');
+    el.className = cls;
+    el.innerHTML =
+        `<div class="re-head">
+            <span>
+                <span class="re-seq">#${seq}</span>
+                <span class="re-ts" style="margin-left:6px">${ts}</span>
+            </span>
+            <span class="re-cmds">
+                ${obs ? '<span class="re-cmd obs-y">⚠ OBS</span>' : ''}
+                <span class="re-cmd turn">↻ ${turnS}</span>
+                <span class="re-cmd move">→ ${moveS}</span>
+                ${latS ? `<span class="re-latency">${latS}</span>` : ''}
+            </span>
+        </div>
+        <div class="re-scene">${scene || '(no analysis)'}</div>
+        ${rawLine}${ovrLine}${errLine}`;
+
+    body.insertBefore(el, body.firstChild);
+    while (body.children.length > 120) body.removeChild(body.lastChild);
+}
+
+// Also sync expanded trace when sidebar trace receives a new entry
+const _origAddToTrace = addToTrace;
+// Patch: updateReasonView is called from fetchMapData and handles both
+
 // ─── LLM ──────────────────────────────────────────────────────────────────
 let llmActive = false;
 let llmLastScene = '';
@@ -537,6 +885,13 @@ document.addEventListener('keydown', e => {
             if (!document.activeElement || document.activeElement.tagName !== 'INPUT') {
                 e.preventDefault();
                 takeSnapshot();
+            }
+        }
+        // R = toggle expanded reason view
+        if (e.key === 'r' || e.key === 'R') {
+            if (!document.activeElement || document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                rvOpen ? closeReasonView() : openReasonView();
             }
         }
         return;
@@ -739,6 +1094,9 @@ async function fetchMapData() {
                 llmLastScene = mapData.llm_scene;
                 addToTrace(mapData.llm_scene, turn ?? 0, move ?? 0, obs, mapData.llm_error || '', mapData.sim_time);
             }
+
+            // Sync expanded reason view
+            updateReasonView(mapData);
         }
     } catch(e){}
 }
@@ -787,6 +1145,10 @@ async function takeSnapshot(label) {
             const flash = document.getElementById('cam-flash');
             flash.classList.add('pop');
             requestAnimationFrame(() => requestAnimationFrame(() => flash.classList.remove('pop')));
+            // Also flash in expanded view
+            const rvFlash = document.getElementById('rv-flash');
+            rvFlash.classList.add('pop');
+            requestAnimationFrame(() => requestAnimationFrame(() => rvFlash.classList.remove('pop')));
             // Flash button
             btn.classList.add('flashing');
             setTimeout(() => btn.classList.remove('flashing'), 520);
@@ -841,7 +1203,12 @@ async function doShutdown() {
     document.querySelector('.modal-box h2').textContent = '✅ Shutdown sent';
     document.querySelector('.modal-btns').innerHTML = '';
 }
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        closeModal();
+        closeReasonView();
+    }
+});
 
 // ─── Recording ─────────────────────────────────────────────────────────────
 let recActive = false, recTimerInterval = null, recStartTs = 0;

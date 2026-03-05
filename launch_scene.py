@@ -32,11 +32,11 @@ LLM_ENABLED    = True
 BRIDGE_URL     = os.environ.get("BRIDGE_URL",     "http://localhost:8080/v1/reason2/action")
 BRIDGE_API_KEY = os.environ.get("BRIDGE_API_KEY", "super-secret-key")
 LLM_INTERVAL   = 30      # call bridge every N sim steps (~0.5 s at 60 Hz)
-LLM_TIMEOUT    = 30.0    # seconds before giving up on a response
+LLM_TIMEOUT    = 60.0    # seconds before giving up on a response
 
 # System prompt is configured server-side — no local prompt needed.
 
-import base64, json as _json
+import base64, json as _json, re as _re
 try:
     import requests as _requests
     from PIL import Image as _PilImage
@@ -73,6 +73,10 @@ class LLMNavigator:
         self.last_scene    = ""
         self.last_obstacle = False
         self.last_raw      = ""
+        self.last_override = ""     # human-readable override label, or ""
+        self.last_raw_turn = 0.0    # model's original turn before any override
+        self.last_raw_move = 0.0    # model's original move before any override
+        self.last_elapsed  = 0.0    # bridge round-trip seconds
         self.error         = ""
         self._lock         = threading.Lock()
         self._pending      = False   # True while a request is in-flight
@@ -92,82 +96,33 @@ class LLMNavigator:
             return base64.b64encode(out.getvalue()).decode("ascii")
 
     def _build_instruction(self, odometry: dict) -> str:
-        """Compact instruction string kept under the 2000-char bridge limit."""
+        """Minimal instruction: just odometry, system prompt handles the rest."""
         yaw_deg   = float(np.degrees(odometry["yaw"]))
         lin_vel   = float(odometry.get("linear_vel", 0.0))
-        dist_m    = float(odometry.get("distance",   0.0))
-        sweep_row = int(odometry.get("sweep_row",    0))
 
         with self._lock:
             hist = list(self._cmd_history)
 
-        # Compact history: last 4 entries only, terse format
-        if hist:
-            hist_str = " | ".join(f"t={t:+.0f} m={m:.2f}" for t, m in hist[-4:])
-        else:
-            hist_str = "none"
-
-        # Idle streak: consecutive commands with both turn~0 and move~0
-        idle_streak = 0
-        for t, m in reversed(hist):
-            if abs(t) < 2.0 and m < 0.02:
-                idle_streak += 1
-            else:
-                break
-
+        # Idle streak alert so the system knows when it's stuck
+        idle_streak = sum(1 for t, m in reversed(hist) if abs(t) < 2.0 and m < 0.02)
         alerts = ""
         if lin_vel < 0.05 and odometry.get("was_driving", False):
-            alerts += "ALERT:STALL(wall_contact) "
+            alerts = "ALERT:STALL "
         if idle_streak >= 3:
-            alerts += f"ALERT:IDLE_x{idle_streak}(all_zero_cmds,must_output_nonzero) "
-
-        # Row parity tells LLM which sweep direction it is on
-        row_dir = "left-to-right" if sweep_row % 2 == 0 else "right-to-left"
+            alerts += f"ALERT:IDLE_x{idle_streak} "
 
         instr = (
-            "You are the autonomous navigation brain for a robot vacuum.\n"
-            "TASK: Boustrophedon (lawnmower) floor sweep — long parallel rows, U-turn at each wall.\n\n"
-
-            "=== TELEMETRY ===\n"
-            f"Position: X={odometry['x']:.2f}, Y={odometry['y']:.2f}\n"
-            f"Heading: {yaw_deg:.1f} deg\n"
-            f"Velocity: {lin_vel:.2f} m/s\n"
-            f"Sweep State: Row={sweep_row} (Direction: {row_dir})\n"
-            f"History: {hist_str}\n"
-            f"Active Alerts: {alerts if alerts else 'NONE'}\n\n"
-
-            "=== HAZARD CLASSIFICATION (identify before acting) ===\n"
-            "TYPE-A (ENTANGLEMENT) — cables, cords, wires, rope, string, charger, plug, shoelaces: "
-            "STOP IMMEDIATELY. Hard turn 90° away. Never approach. This is the HIGHEST hazard.\n"
-            "TYPE-B (STRUCTURAL) — walls, furniture legs, boxes, table legs, baseboards: "
-            "Turn 45-90° away when within 0.8m or filling >15% of image. move=0.\n"
-            "TYPE-C (SOFT/SMALL) — toys, socks, paper, small debris: "
-            "Gentle arc 20-45° away. move=0.\n"
-            "TYPE-D (SURFACE CHANGE) — rug edges, carpet borders, steps: "
-            "Turn 30-45° away. move=0.\n\n"
-
-            "=== DECISION RULES (Strict Priority) ===\n"
-            "1. ALERTS: STALL -> turn=120, move=0. IDLE -> turn=90, move=0.\n"
-            "2. TRAPPED: image dark/black -> turn=90, move=0.\n"
-            "3. TYPE-A visible ANYWHERE in image -> turn=90 or -90 (away), move=0.\n"
-            "4. TYPE-B fills >15% OR within 0.8m -> turn=45/50/55 (away), move=0.\n"
-            "5. Wall/baseboard in center 60% -> turn=90 or -90 (U-turn for row end), move=0.\n"
-            "6. TYPE-C or TYPE-D visible -> turn=30/45, move=0.\n"
-            "7. CLEAR FLOOR -> micro-correct heading, turn=-10 to +10, move=0.15-0.20.\n\n"
-
-            "=== CONSTRAINTS ===\n"
-            "- move: 0.0 to 0.20 only. Never negative.\n"
-            "- turn: multiples of 5 only. "
-            "Allowed: [-120,-90,-55,-50,-45,-20,-15,-10,-5,0,5,10,15,20,45,50,55,90,120].\n"
-            "- SAFETY: Rules 1-6 always override Rule 7.\n\n"
-
-            "Respond ONLY with raw JSON, no markdown:\n"
-            "{\"scene_analysis\": \"<1 sentence max 15 words>\", "
-            "\"obstacle_detected\": <bool>, "
-            "\"turn_degrees\": <float mult of 5>, "
-            "\"move_meters\": <float 0.0-0.20>}"
+            f"Current Odometry:\n"
+            f"X: {odometry['x']:.1f} meters\n"
+            f"Y: {odometry['y']:.1f} meters\n"
+            f"Absolute Heading: {yaw_deg:.1f} degrees\n"
         )
-        # Safety net: hard truncate to 1950 chars (bridge limit is 2000)
+        if alerts:
+            instr += f"Alerts: {alerts.strip()}\n"
+        instr += (
+            "\nExamine the attached front-camera image. Based on your current position "
+            "and what you see, output the JSON to execute the next immediate movement."
+        )
         return instr[:1950]
 
     def _parse_response(self, resp_json: dict, raw_text: str) -> dict:
@@ -200,8 +155,23 @@ class LLMNavigator:
                 "Content-Type": "application/json",
                 "X-API-Key":    BRIDGE_API_KEY,
             }
-            resp = _requests.post(BRIDGE_URL, headers=headers,
-                                  json=payload, timeout=LLM_TIMEOUT)
+            t_start = time.time()
+            last_exc = None
+            for _attempt in range(3):  # up to 3 attempts
+                try:
+                    resp = _requests.post(BRIDGE_URL, headers=headers,
+                                          json=payload, timeout=LLM_TIMEOUT)
+                    last_exc = None
+                    break
+                except (_requests.exceptions.Timeout,
+                        _requests.exceptions.ConnectionError) as exc:
+                    last_exc = exc
+                    wait = 2 ** _attempt  # 1s, 2s, 4s
+                    print(f"[LLM] attempt {_attempt+1}/3 failed ({exc.__class__.__name__}), retrying in {wait}s")
+                    time.sleep(wait)
+            if last_exc is not None:
+                raise last_exc
+            elapsed = round(time.time() - t_start, 2)
             if resp.status_code == 422:
                 print(f"[LLM] 422 body: {resp.text[:400]}")
             resp.raise_for_status()
@@ -210,46 +180,86 @@ class LLMNavigator:
             # Round to nearest 5-degree increment for fine-grained boustrophedon control
             raw_turn = round(raw_turn / 5.0) * 5.0
             cmd = {
-                "turn_degrees": float(np.clip(raw_turn,                            -180.0, 180.0)),
-                # Never allow backward motion; small steps for cautious sweep
-                "move_meters":  float(np.clip(parsed.get("move_meters",  0.0),    0.0,   0.26)),
+                "turn_degrees": float(np.clip(raw_turn,                         -180.0, 180.0)),
+                # Never allow backward motion; expanded range for long arc sweeps
+                "move_meters":  float(np.clip(parsed.get("move_meters", 0.0),   0.0,   0.80)),
             }
+            # Capture model's raw output before any safety override
+            model_turn = cmd["turn_degrees"]
+            model_move = cmd["move_meters"]
             scene_lower = parsed.get("scene_analysis", "").lower()
+            override_label = ""
 
             # -- Client-side overrides ------------------------------------------
-            # Minimal: trust the model. Only fix provable deadlock patterns.
-
             # 1) Dark/black image + no turn -> spin to escape
             if "dark" in scene_lower and "clear" not in scene_lower and abs(cmd["turn_degrees"]) < 5.0:
                 cmd["turn_degrees"] = 90.0
                 cmd["move_meters"]  = 0.0
+                override_label = "DARK→spin90"
                 print("[LLM] override: dark image -> spin 90")
 
             # 2) Streak overrides
             with self._lock:
                 hist_snap = list(self._cmd_history)
-            # No-turn streak: only intervene after 15+ straight steps (lawnmower rows are long)
             streak = sum(1 for t, _ in reversed(hist_snap) if abs(t) < 5.0)
             if streak >= 15 and abs(cmd["turn_degrees"]) < 5.0:
                 cmd["turn_degrees"] = 90.0
+                override_label = f"STREAK{streak}→U-turn"
                 print(f"[LLM] override: {streak}-step no-turn streak -> force 90 deg U-turn")
-            # Full-idle streak: both turn and move ~zero 3+ times -> robot is stuck, spin
             idle_streak = sum(1 for t, m in reversed(hist_snap) if abs(t) < 2.0 and m < 0.02)
             if idle_streak >= 3 and abs(cmd["turn_degrees"]) < 2.0 and cmd["move_meters"] < 0.02:
                 cmd["turn_degrees"] = 90.0
+                override_label = f"IDLE{idle_streak}→spin90"
                 print(f"[LLM] override: {idle_streak}-step full-idle stuck -> spin 90")
+
+            # -- Safety overrides: catch what the LLM misses -------------------
+            # 3) STALL: robot was driving but velocity collapsed (wall contact)
+            lin_vel_now = float(odometry.get("linear_vel", 1.0))
+            was_driving = bool(odometry.get("was_driving", False))
+            if was_driving and lin_vel_now < 0.05 and cmd["move_meters"] > 0.01:
+                cmd["turn_degrees"] = 120.0
+                cmd["move_meters"]  = 0.0
+                override_label = "STALL→turn120"
+                print("[SAFETY] STALL detected (vel<0.05, was_driving) -> turn=120, move=0")
+
+            # 4) WALL_DOMINANT: model sees wall filling view but labels it non-obstacle.
+            # These phrases all indicate the wall is directly ahead and close.
+            _WALL_DOMINANT_KW = (
+                "dominates view", "dominates the view", "fills the frame",
+                "fills the view", "fills the image", "covers the frame",
+                "wall ahead", "wall directly ahead", "wall in front",
+                "wall is directly", "wall fills", "wall dominates",
+                "large wall", "facing the wall", "facing a wall",
+                "close to the wall", "very close to", "approaching the wall",
+            )
+            if (cmd["move_meters"] > 0.05
+                    and abs(cmd["turn_degrees"]) < 45.0
+                    and any(kw in scene_lower for kw in _WALL_DOMINANT_KW)):
+                cmd["turn_degrees"] = 90.0
+                cmd["move_meters"]  = 0.0
+                override_label = "WALL_DOM→turn90"
+                # Also set obstacle flag so preemption triggers if already mid-move
+                parsed["obstacle_detected"] = True
+                print(f"[SAFETY] WALL_DOMINANT in SA -> turn=90 move=0  sa='{scene_lower[:70]}'")
+
             with self._lock:
                 self.last_cmd      = cmd
                 self.last_scene    = parsed.get("scene_analysis", "")
                 self.last_obstacle = bool(parsed.get("obstacle_detected", False))
                 self.last_raw      = resp.text
+                self.last_override = override_label
+                self.last_raw_turn = model_turn
+                self.last_raw_move = model_move
+                self.last_elapsed  = elapsed
                 self.error         = ""
                 # Keep rolling history of last 8 commands
                 self._cmd_history.append((cmd["turn_degrees"], cmd["move_meters"]))
                 if len(self._cmd_history) > 8:
                     self._cmd_history.pop(0)
                 self._cmd_seq += 1  # signal that a fresh command is ready
-            print(f"[LLM] turn={cmd['turn_degrees']:.1f}deg move={cmd['move_meters']:.2f}m  scene: {self.last_scene[:80]}")
+            print(f"[LLM] turn={cmd['turn_degrees']:.1f}deg move={cmd['move_meters']:.2f}m  "
+                  f"({elapsed:.1f}s)  override={override_label or 'none'}  "
+                  f"scene: {self.last_scene[:80]}")
         except Exception as exc:
             with self._lock:
                 self.error = str(exc)
@@ -373,6 +383,7 @@ class CosmosCleanerBotApp:
         self._llm_origin     = None  # position snapshot when drive phase started
         self._llm_last_seq   = 0     # tracks which _cmd_seq we last consumed
         self._llm_stall_steps = 0    # steps where drive was commanded but robot didn't move
+        self._llm_prefetch_fired = False  # True once lookahead request is in-flight for current cmd
         self._sweep_row      = 0     # boustrophedon row counter (increments on U-turns)
         
         self.my_world.reset()
@@ -644,7 +655,8 @@ class CosmosCleanerBotApp:
 
     def llm_navigate_step(self):
         """Phase-machine LLM navigation.
-        Phases: None (idle) -> 'rotate' (turn in place) -> 'drive' (forward only)
+        Phases: None (idle) -> 'rotate' (turn in place) -> 'drive' (forward)
+        turn+move commands run rotate first, then drive sequentially.
         A move=0 command NEVER generates forward motion.
         """
         nav = self.llm_navigator
@@ -657,7 +669,7 @@ class CosmosCleanerBotApp:
                 "linear_vel":  float(self.linear_vel),
                 "angular_vel": float(self.angular_vel),
                 "distance":    float(self.distance_traveled),
-                "was_driving": self._llm_phase == 'drive',
+                "was_driving": self._llm_phase in ('drive', 'arc'),
                 "sweep_row":   self._sweep_row,
             }
 
@@ -668,6 +680,36 @@ class CosmosCleanerBotApp:
 
         def _angle_diff(target, current):
             return ((target - current) + np.pi) % (2 * np.pi) - np.pi
+
+        def _preempt_check() -> bool:
+            """Return True (and reset to IDLE) if a fresh stop/obstacle command
+            has arrived that should interrupt the current motion phase.
+            Preempts when: new cmd has move=0 OR obstacle_detected=True
+            OR scene_analysis contains dominant-wall language."""
+            with nav._lock:
+                fresh = nav._cmd_seq > self._llm_last_seq
+                if not fresh:
+                    return False
+                new_move     = nav.last_cmd.get("move_meters", 0.0)
+                new_obstacle = nav.last_obstacle
+                new_scene    = nav.last_scene.lower()
+            _WALL_DOMINANT_KW = (
+                "dominates view", "dominates the view", "fills the frame",
+                "fills the view", "fills the image", "covers the frame",
+                "wall ahead", "wall directly ahead", "wall in front",
+                "wall is directly", "wall fills", "wall dominates",
+                "large wall", "facing the wall", "facing a wall",
+                "close to the wall", "very close to", "approaching the wall",
+            )
+            wall_dominant = any(kw in new_scene for kw in _WALL_DOMINANT_KW)
+            if new_move < 0.02 or new_obstacle or wall_dominant:
+                reason = "obstacle" if new_obstacle else ("wall_dom" if wall_dominant else "move=0")
+                print(f"[NAV] preempt ({reason}): move={new_move:.2f} -> abort phase")
+                self._llm_phase = None
+                self._llm_stall_steps = 0
+                self.move_robot(0, 0)
+                return True
+            return False
 
         # ── IDLE: no active phase, consume fresh response or request one ────
         if self._llm_phase is None:
@@ -686,6 +728,7 @@ class CosmosCleanerBotApp:
 
             # Consume the fresh command
             self._llm_last_seq = nav._cmd_seq
+            self._llm_prefetch_fired = False  # reset so next phase can prefetch
             with nav._lock:
                 cmd = dict(nav.last_cmd)
 
@@ -708,10 +751,11 @@ class CosmosCleanerBotApp:
             self._llm_move_m     = move_m
 
             if abs(turn_deg) >= 2.0:
+                # Always rotate first, then drive
                 self._llm_phase = 'rotate'
             else:
-                # No turn needed, go straight to drive
-                self._llm_phase = 'drive'
+                # No meaningful turn — drive straight
+                self._llm_phase  = 'drive'
                 self._llm_origin = self.current_pos[:2].copy()
             return  # will execute on next step
 
@@ -719,30 +763,46 @@ class CosmosCleanerBotApp:
         if self._llm_phase == 'rotate':
             diff = _angle_diff(self._llm_target_yaw, self.current_yaw)
             if abs(diff) < 0.05:   # ~3 deg threshold
-                # Heading reached — transition
+                # Heading reached — transition to drive if move requested, else idle
                 if self._llm_move_m >= 0.02:
                     self._llm_phase  = 'drive'
                     self._llm_origin = self.current_pos[:2].copy()
                 else:
-                    # Pure turn command complete — request next
                     self._llm_phase = None
                     self.move_robot(0, 0)
-                    _request_next()
+                    if not nav._pending:
+                        _request_next()
             else:
+                # Near-completion lookahead: query when within 3 deg of target
+                if not self._llm_prefetch_fired and abs(diff) < np.deg2rad(3.0):
+                    self._llm_prefetch_fired = True
+                    if not nav._pending:
+                        _request_next()
                 # Proportional angular, no linear
                 self.move_robot(0, np.clip(7.8 * diff, -4.5, 4.5))
             return
 
         # -- DRIVE: move forward until distance covered ----------------------
         if self._llm_phase == 'drive':
+            if _preempt_check():
+                return  # IDLE will pick up the new command next step
             traveled = np.linalg.norm(self.current_pos[:2] - self._llm_origin)
             if traveled >= self._llm_move_m - 0.05:
-                # Distance covered -- done, request next command
+                # Distance covered -- done; skip request if prefetch already in-flight
                 self._llm_phase = None
                 self._llm_stall_steps = 0
                 self.move_robot(0, 0)
-                _request_next()
+                if not nav._pending:
+                    _request_next()
             else:
+                # Near-completion lookahead: query when 0.1m remains
+                # so the response arrives just as the drive finishes.
+                remaining = self._llm_move_m - traveled
+                if not self._llm_prefetch_fired and remaining < 0.10:
+                    self._llm_prefetch_fired = True
+                    if not nav._pending:
+                        _request_next()
+
                 # Check for stall: robot commanded to move but linear_vel is tiny
                 if self.linear_vel < 0.03:
                     self._llm_stall_steps += 1
@@ -912,11 +972,17 @@ def map_data():
         "speeds":  {"nav": app_instance.nav_speed,
                     "nav_angular_gain": app_instance.nav_angular_gain},
         "llm_mode":      getattr(app_instance, 'llm_mode', False),
-        "llm_scene":     app_instance.llm_navigator.last_scene     if hasattr(app_instance, 'llm_navigator') else "",
-        "llm_obstacle":  app_instance.llm_navigator.last_obstacle  if hasattr(app_instance, 'llm_navigator') else False,
-        "llm_error":     app_instance.llm_navigator.error          if hasattr(app_instance, 'llm_navigator') else "",
-        "llm_turn":      app_instance.llm_navigator.last_cmd.get("turn_degrees") if hasattr(app_instance, 'llm_navigator') else None,
-        "llm_move":      app_instance.llm_navigator.last_cmd.get("move_meters")  if hasattr(app_instance, 'llm_navigator') else None,
+        "llm_seq":       app_instance.llm_navigator._cmd_seq        if hasattr(app_instance, 'llm_navigator') else 0,
+        "llm_scene":     app_instance.llm_navigator.last_scene      if hasattr(app_instance, 'llm_navigator') else "",
+        "llm_obstacle":  app_instance.llm_navigator.last_obstacle   if hasattr(app_instance, 'llm_navigator') else False,
+        "llm_error":     app_instance.llm_navigator.error           if hasattr(app_instance, 'llm_navigator') else "",
+        "llm_turn":      app_instance.llm_navigator.last_cmd.get("turn_degrees")  if hasattr(app_instance, 'llm_navigator') else None,
+        "llm_move":      app_instance.llm_navigator.last_cmd.get("move_meters")   if hasattr(app_instance, 'llm_navigator') else None,
+        "llm_raw_turn":  app_instance.llm_navigator.last_raw_turn   if hasattr(app_instance, 'llm_navigator') else None,
+        "llm_raw_move":  app_instance.llm_navigator.last_raw_move   if hasattr(app_instance, 'llm_navigator') else None,
+        "llm_override":  app_instance.llm_navigator.last_override   if hasattr(app_instance, 'llm_navigator') else "",
+        "llm_elapsed":   app_instance.llm_navigator.last_elapsed    if hasattr(app_instance, 'llm_navigator') else 0.0,
+        "llm_pending":   app_instance.llm_navigator._pending        if hasattr(app_instance, 'llm_navigator') else False,
     })
 
 @flask_app.route('/set_speed', methods=['POST'])
