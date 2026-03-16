@@ -4,6 +4,9 @@ An autonomous robot-vacuum simulation built on **Isaac Sim 5.0** with LLM-driven
 The robot performs boustrophedon (lawnmower) path planning, streaming its camera feed to a live Flask dashboard.
 
 ---
+## Demo Video 🎥
+[https://streamable.com/zf4r1t
+](url) 
 
 ## Project Structure
 
