@@ -3,6 +3,14 @@
 An autonomous robot-vacuum simulation built on **Isaac Sim 5.0** with LLM-driven navigation via the **Cosmos Reason2 Bridge**.  
 The robot performs boustrophedon (lawnmower) path planning, streaming its camera feed to a live Flask dashboard.
 
+> **Full repository (including Brev code):** [https://github.com/suhaasteja/nvidia-cosmos-cookoff/tree/main](https://github.com/suhaasteja/nvidia-cosmos-cookoff/tree/main)
+
+---
+
+## Demo Video
+
+[https://streamable.com/zf4r1t](https://streamable.com/zf4r1t)
+
 ---
 ## Demo Video 🎥
 [https://streamable.com/zf4r1t
